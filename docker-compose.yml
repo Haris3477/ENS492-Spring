@@ -1,0 +1,64 @@
+version: "3.8"
+
+services:
+  redmine:
+    build:
+      context: .
+      dockerfile: Dockerfile.coverage
+    container_name: redmine
+    ports:
+      - "3000:3000"
+    environment:
+      REDMINE_DB_MYSQL: db
+      REDMINE_DB_DATABASE: redmine
+      REDMINE_DB_USERNAME: redmine
+      REDMINE_DB_PASSWORD: redmine_password
+      REDMINE_SECRET_KEY_BASE: supersecretkeybase12345678901234567890123456789
+    volumes:
+      - redmine_data:/usr/src/redmine/files
+      - redmine_plugins:/usr/src/redmine/plugins
+      - ./coverage_helper.rb:/usr/src/redmine/config/initializers/coverage_helper.rb
+      - ./coverage:/usr/src/redmine/coverage
+      - ./Gemfile.local:/usr/src/redmine/Gemfile.local
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  db:
+    image: mysql:8.0
+    container_name: redmine_db
+    environment:
+      MYSQL_ROOT_PASSWORD: root_password
+      MYSQL_DATABASE: redmine
+      MYSQL_USER: redmine
+      MYSQL_PASSWORD: redmine_password
+    volumes:
+      - redmine_db_data:/var/lib/mysql
+    restart: unless-stopped
+    command: --default-authentication-plugin=mysql_native_password
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "mysqladmin",
+          "ping",
+          "-h",
+          "localhost",
+          "-u",
+          "root",
+          "-proot_password",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  redmine_data:
+  redmine_plugins:
+  redmine_db_data:

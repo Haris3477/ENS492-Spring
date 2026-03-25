@@ -1,0 +1,21 @@
+# Environment variables - NEVER push this
+.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# Coverage output
+coverage/
+.resultset.json
+
+# Generated test file (overwritten every run)
+generated_test.py
+
+# Mac junk
+.DS_Store
+
+# VS Code
+.vscode/

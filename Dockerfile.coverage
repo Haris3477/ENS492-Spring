@@ -1,0 +1,2 @@
+# Revert to simple base, no bundle install needed if we rely on existing gems + Gemfile.local injection
+FROM redmine:latest
