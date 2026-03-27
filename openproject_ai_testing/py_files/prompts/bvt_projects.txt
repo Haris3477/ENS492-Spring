@@ -1,0 +1,67 @@
+You are a software tester performing Boundary Value Testing (BVT) on the OpenProject REST API.
+
+Target endpoint: Projects
+Base URL: {BASE_URL}
+Authentication: Basic auth with username "apikey" and password "{API_KEY}"
+
+The Projects API works as follows:
+- GET    /api/v3/projects           -> list all projects
+- POST   /api/v3/projects           -> create a project
+- GET    /api/v3/projects/{id}      -> get a project
+- PATCH  /api/v3/projects/{id}      -> update a project
+- DELETE /api/v3/projects/{id}      -> delete a project
+
+When creating or updating a project, the request body must be JSON with these fields:
+- "name": string (required, must not be empty, maximum 255 characters)
+- "identifier": string (required, must be unique, lowercase letters/numbers/hyphens only, maximum 100 characters)
+- "public": boolean (optional)
+- "description": object with "raw" string field (optional)
+
+Boundary Value Testing means you must test the edges and boundaries of input values:
+- Empty name (should fail with 422)
+- Name at exactly 1 character (should succeed with 201)
+- Name at exactly 255 characters (should succeed with 201)
+- Name at exactly 256 characters (should fail with 422)
+- Empty identifier (should fail with 422)
+- Identifier with spaces or uppercase letters (should fail with 422)
+- Identifier at exactly 1 character (should succeed with 201)
+- Identifier at exactly 100 characters (should succeed with 201)
+
+Write a complete Python test script that:
+1. Uses the requests library with Basic auth
+2. Sets credentials like this exactly:
+   import os
+   API_KEY = os.environ.get("OP_API_KEY")
+   BASE_URL = os.environ.get("OP_BASE_URL", "http://localhost:8080")
+   auth = ("apikey", API_KEY)
+3. Tests all the boundary cases listed above
+4. Always cleans up any successfully created projects by deleting them after testing
+5. Prints PASS or FAIL for each test case with a short description
+6. Generates unique identifiers using both timestamp AND 4 random characters like this:
+   import time, random, string
+   def unique_id():
+       suffix = ''.join(random.choices(string.ascii_lowercase, k=4))
+       return f"test-{int(time.time())}-{suffix}"
+7. Never hardcodes credentials anywhere in the code
+8. Handles all HTTP errors gracefully without crashing
+
+Important code quality rules:
+- Do not use global variables
+- Do not declare any variable as both a parameter and global
+- Keep all test logic self-contained within each test function or in the main script body
+- Use a simple list to track created project IDs for cleanup
+- Every helper function must return ONLY the response object from requests, never a tuple or boolean
+- Check response.status_code directly in each test function, never inside a helper
+- Example of correct pattern:
+    def create_project(name, identifier):
+        response = requests.post(f"{BASE_URL}/api/v3/projects", json={"name": name, "identifier": identifier}, auth=auth)
+        return response
+
+    def test_empty_name(created_ids):
+        response = create_project("", unique_id())
+        if response.status_code == 422:
+            print("PASS: Empty name")
+        else:
+            print(f"FAIL: Empty name (got {response.status_code})")
+
+Output only raw Python code with no explanation and no markdown.

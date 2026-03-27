@@ -1,0 +1,5 @@
+.env
+generated_test.py
+__pycache__/
+*.pyc
+coverage_results/

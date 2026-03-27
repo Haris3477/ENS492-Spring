@@ -1,0 +1,107 @@
+You are a software tester performing Boundary Value Testing (BVT) on the OpenProject REST API.
+
+Target endpoint: Users
+Base URL: {BASE_URL}
+Authentication: Basic auth with username "apikey" and password "{API_KEY}"
+
+The Users API works as follows:
+- GET    /api/v3/users        -> list all users
+- POST   /api/v3/users        -> create a user
+- GET    /api/v3/users/{id}   -> get a user
+- PATCH  /api/v3/users/{id}   -> update a user
+- DELETE /api/v3/users/{id}   -> delete a user (note: may return 403 due to API restrictions)
+
+When creating a user, the request body must be JSON with these fields:
+- "login": string (required, must be unique)
+- "firstName": string (required)
+- "lastName": string (required)
+- "email": string (required, must be unique and valid email format)
+- "password": string (required, minimum 10 characters)
+
+Boundary Value Testing means you must test the edges and boundaries of input values.
+For each test, the EXPECTED status code is listed. PASS means the actual code matches expected.
+
+Tests to implement:
+1. Empty login -> expected 422
+2. Login at exactly 1 character -> expected 201
+3. Valid user with all fields correct -> expected 201
+4. Invalid email like "notanemail" -> expected 422
+5. Missing password field -> expected 422
+6. Password exactly 9 chars "shortpass" -> expected 422
+7. Password exactly 10 chars "validpasswd" -> expected 201
+8. Empty firstName -> expected 422
+9. Empty lastName -> expected 422
+10. Duplicate login (same login as a previously created user) -> expected 422
+11. Duplicate email (same email as a previously created user) -> expected 422
+
+Write a complete Python test script using this EXACT pattern for every test:
+
+import os, time, random, string, requests
+
+API_KEY = os.environ.get("OP_API_KEY")
+BASE_URL = os.environ.get("OP_BASE_URL", "http://localhost:8080")
+auth = ("apikey", API_KEY)
+created_ids = []
+
+def unique_suffix():
+    return f"{int(time.time())}{''.join(random.choices(string.ascii_lowercase, k=4))}"
+
+def create_user(payload):
+    return requests.post(f"{BASE_URL}/api/v3/users", json=payload, auth=auth)
+
+def check(description, response, expected_status):
+    if response.status_code == expected_status:
+        print(f"PASS: {description}")
+        return True
+    else:
+        print(f"FAIL: {description} (expected {expected_status}, got {response.status_code})")
+        return False
+
+# Example of correct test:
+def test_empty_login(created_ids):
+    response = create_user({
+        "login": "",
+        "firstName": "Test",
+        "lastName": "User",
+        "email": f"test{unique_suffix()}@example.com",
+        "password": "validpassword123"
+    })
+    check("Empty login", response, 422)
+
+# For tests that create a user successfully, append the id to created_ids:
+def test_valid_user(created_ids):
+    response = create_user({
+        "login": f"user{unique_suffix()}",
+        "firstName": "Test",
+        "lastName": "User",
+        "email": f"test{unique_suffix()}@example.com",
+        "password": "validpassword123"
+    })
+    if check("Valid user", response, 201):
+        created_ids.append(response.json()["id"])
+
+Important rules:
+- NEVER use hardcoded logins like "a" — always use unique_suffix()
+- NEVER use try/except blocks
+- NEVER return tuples or booleans from helpers — always return the response object
+- Cleanup: attempt DELETE for each id in created_ids, print warning if 403
+
+Output only raw Python code with no explanation and no markdown.
+
+Additional rule for duplicate tests:
+- To test duplicate login, create a first user, save its login in a separate variable, then attempt to create a second user with the same login
+- To test duplicate email, create a first user, save its email in a separate variable, then attempt to create a second user with the same email
+- created_ids must only ever contain integers (user IDs), never dictionaries or other objects
+- Example:
+    def test_duplicate_login(created_ids):
+        login = f"user{unique_suffix()}"
+        response1 = create_user({"login": login, "firstName": "Test", "lastName": "User", "email": f"test{unique_suffix()}@example.com", "password": "validpassword123"})
+        if response1.status_code == 201:
+            created_ids.append(response1.json()["id"])
+        response2 = create_user({"login": login, "firstName": "Test", "lastName": "User", "email": f"test{unique_suffix()}@example.com", "password": "validpassword123"})
+        check("Duplicate login", response2, 422)
+
+Critical rules to prevent silent failures:
+- Always call every test function at the bottom of the script inside a run_tests() function
+- Always call run_tests() at the end with if __name__ == "__main__": run_tests()
+- NEVER use hardcoded login values like "a" — always use f"a{unique_suffix()}" or similar

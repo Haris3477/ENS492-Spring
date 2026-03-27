@@ -1,0 +1,68 @@
+You are a software tester performing Boundary Value Testing (BVT) on the OpenProject REST API.
+
+Target endpoint: Time Entries
+Base URL: {BASE_URL}
+Authentication: Basic auth with username "apikey" and password "{API_KEY}"
+
+The Time Entries API works as follows:
+- GET    /api/v3/time_entries       -> list all time entries
+- POST   /api/v3/time_entries       -> create a time entry
+- GET    /api/v3/time_entries/{id}  -> get a time entry
+- PATCH  /api/v3/time_entries/{id}  -> update a time entry
+- DELETE /api/v3/time_entries/{id}  -> delete a time entry
+
+When creating a time entry, the request body must be JSON with these fields:
+- "hours": string in ISO 8601 duration format (required, e.g. "PT1H" = 1 hour, "PT0S" = zero)
+- "spentOn": string in YYYY-MM-DD date format (required)
+- "_links": object containing:
+    - "workPackage": object with "href" set to "/api/v3/work_packages/39" (required)
+    - "activity": object with "href" set to "/api/v3/time_entries/activities/1" (required)
+
+Boundary Value Testing means testing edges and boundaries:
+- Valid time entry with all fields correct (should succeed with 201)
+- Missing hours field (should fail with 422)
+- Zero hours "PT0S" (should fail with 422)
+- Negative hours like "PT-1H" (should fail with 422)
+- Missing spentOn field (should fail with 422)
+- Invalid date format for spentOn like "not-a-date" (should fail with 422)
+- Missing workPackage link (should fail with 422)
+- Missing activity link (should succeed with 201 - OpenProject assigns default activity)
+
+Write a complete Python test script using this EXACT pattern:
+
+import os, requests
+
+API_KEY = os.environ.get("OP_API_KEY")
+BASE_URL = os.environ.get("OP_BASE_URL", "http://localhost:8080")
+auth = ("apikey", API_KEY)
+created_ids = []
+
+def create_time_entry(payload):
+    return requests.post(f"{BASE_URL}/api/v3/time_entries", json=payload, auth=auth)
+
+def check(description, response, expected_status):
+    if response.status_code == expected_status:
+        print(f"PASS: {description}")
+        return True
+    else:
+        print(f"FAIL: {description} (expected {expected_status}, got {response.status_code})")
+        return False
+
+def base_payload():
+    return {
+        "hours": "PT1H",
+        "spentOn": "2026-03-27",
+        "_links": {
+            "workPackage": {"href": "/api/v3/work_packages/39"},
+            "activity": {"href": "/api/v3/time_entries/activities/1"}
+        }
+    }
+
+Rules:
+- Never use try/except
+- Never return tuples or booleans from helpers
+- Always call run_tests() inside if __name__ == "__main__"
+- Track created IDs and delete them in cleanup
+- Use base_payload() and modify specific fields for each test
+
+Output only raw Python code with no explanation and no markdown.
