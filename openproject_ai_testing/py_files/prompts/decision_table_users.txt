@@ -1,0 +1,96 @@
+You are a software tester performing Decision Table Testing on the OpenProject REST API.
+
+Target endpoint: Users
+Base URL: {BASE_URL}
+Authentication: Basic auth with username "apikey" and password "{API_KEY}"
+
+The Users API works as follows:
+- GET    /api/v3/users        -> list all users
+- POST   /api/v3/users        -> create a user
+- GET    /api/v3/users/{id}   -> get a user
+- PATCH  /api/v3/users/{id}   -> update a user
+- DELETE /api/v3/users/{id}   -> delete a user (returns 403 — do not test deletion)
+
+When creating a user, the request body must be JSON with these fields:
+- "login": string (required, must be unique)
+- "firstName": string (required)
+- "lastName": string (required)
+- "email": string (required, must be a valid email format, must be unique)
+- "password": string (required, minimum 10 characters)
+
+Important known behaviors:
+- User deletion via the API returns 403 MissingPermission even for admin users. Do NOT attempt to delete users via the API.
+- Track created user IDs and print a cleanup notice at the end listing all IDs that must be manually deleted through the admin web interface at /admin/users.
+- The minimum password length is 10 characters.
+- OpenProject does not enforce a maximum length on login or firstName fields.
+
+Decision Table Testing means you test combinations of input conditions together and verify the outcome. Each rule in the decision table specifies the state of multiple inputs at once and the expected result.
+
+Here is the decision table to implement. Each row is one test case combining multiple conditions:
+
+Rule 1:  login=valid, email=valid, password=valid(10chars), firstName=valid, lastName=valid -> expect 201
+Rule 2:  login=empty, email=valid, password=valid, firstName=valid, lastName=valid          -> expect 422
+Rule 3:  login=valid, email=invalid(no @), password=valid, firstName=valid, lastName=valid  -> expect 422
+Rule 4:  login=valid, email=valid, password=short(9chars), firstName=valid, lastName=valid  -> expect 422
+Rule 5:  login=valid, email=valid, password=valid, firstName=empty, lastName=valid          -> expect 422
+Rule 6:  login=valid, email=valid, password=valid, firstName=valid, lastName=empty          -> expect 422
+Rule 7:  login=valid, email=valid, password=empty, firstName=valid, lastName=valid          -> expect 422
+Rule 8:  login=missing, email=valid, password=valid, firstName=valid, lastName=valid        -> expect 422
+Rule 9:  login=valid, email=missing, password=valid, firstName=valid, lastName=valid        -> expect 422
+Rule 10: login=valid, email=valid, password=missing, firstName=valid, lastName=valid        -> expect 422
+Rule 11: login=empty, email=invalid, password=short, firstName=empty, lastName=empty        -> expect 422
+Rule 12: login=valid, email=valid, password=exactly 10 chars, firstName=valid, lastName=valid -> expect 201
+
+Write a complete Python test script that:
+1. Uses the requests library with Basic auth
+2. Sets credentials like this exactly:
+   import os
+   API_KEY = os.environ.get("OP_API_KEY")
+   BASE_URL = os.environ.get("OP_BASE_URL", "http://localhost:8080")
+   auth = ("apikey", API_KEY)
+3. Implements all 12 rules from the decision table above as separate test cases
+4. Does NOT attempt to delete users via the API (deletion returns 403)
+5. Tracks all successfully created user IDs in a list and at the end prints:
+   "CLEANUP NEEDED: Manually delete user IDs via admin UI: {list of IDs}"
+6. Generates unique values using both timestamp AND 4 random characters like this:
+   import time, random, string
+   def unique_suffix():
+       suffix = ''.join(random.choices(string.ascii_lowercase, k=4))
+       return f"{int(time.time())}{suffix}"
+7. Prints PASS or FAIL for each rule with a short description and the actual status code on FAIL
+8. Never hardcodes credentials anywhere in the code
+9. Handles all HTTP errors gracefully without crashing
+
+Important code quality rules:
+- Do not use global variables
+- Do not declare any variable as both a parameter and global
+- Keep all test logic self-contained within each test function or in the main script body
+- Use a simple list to track created user IDs for the cleanup notice
+- Every helper function must return ONLY the response object from requests, never a tuple or boolean
+- Check response.status_code directly in each test function, never inside a helper
+- Example of correct pattern:
+    def create_user(login, email, password, first_name, last_name):
+        body = {}
+        if login is not None:
+            body["login"] = login
+        if email is not None:
+            body["email"] = email
+        if password is not None:
+            body["password"] = password
+        if first_name is not None:
+            body["firstName"] = first_name
+        if last_name is not None:
+            body["lastName"] = last_name
+        response = requests.post(f"{BASE_URL}/api/v3/users", json=body, auth=auth)
+        return response
+
+    def test_rule_1(created_ids):
+        s = unique_suffix()
+        response = create_user(f"user{s}", f"user{s}@test.com", "validpass12", "Test", "User")
+        if response.status_code == 201:
+            created_ids.append(response.json()["id"])
+            print("PASS: Rule 1 - all valid fields")
+        else:
+            print(f"FAIL: Rule 1 (got {response.status_code})")
+
+Output only raw Python code with no explanation and no markdown.

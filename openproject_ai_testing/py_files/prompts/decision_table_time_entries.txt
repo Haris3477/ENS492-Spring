@@ -1,0 +1,92 @@
+You are a software tester performing Decision Table Testing on the OpenProject REST API.
+
+Target endpoint: Time Entries
+Base URL: {BASE_URL}
+Authentication: Basic auth with username "apikey" and password "{API_KEY}"
+
+The Time Entries API works as follows:
+- GET    /api/v3/time_entries        -> list all time entries
+- POST   /api/v3/time_entries        -> create a time entry
+- GET    /api/v3/time_entries/{id}   -> get a time entry
+- PATCH  /api/v3/time_entries/{id}   -> update a time entry
+- DELETE /api/v3/time_entries/{id}   -> delete a time entry
+
+When creating a time entry, the request body must be JSON with these fields:
+- "hours": string in ISO 8601 duration format (required, e.g. "PT1H" for 1 hour, "PT30M" for 30 minutes)
+- "spentOn": string in YYYY-MM-DD date format (required)
+- "_links": object containing:
+    - "workPackage": object with "href" set to "/api/v3/work_packages/{id}" (required)
+    - "activity": object with "href" set to "/api/v3/time_entries/activities/1" (optional — OpenProject applies a default activity if omitted)
+
+Use work package ID from environment variable OP_WORK_PACKAGE_ID (default: "39").
+
+Important known behaviors:
+- "PT0S" (zero hours) is rejected with 422
+- Negative durations like "PT-1H" are rejected with 422
+- Missing activity link is accepted — OpenProject silently applies a default activity
+
+Decision Table Testing means you test combinations of input conditions together and verify the outcome. Each rule in the decision table specifies the state of multiple inputs at once and the expected result.
+
+Here is the decision table to implement. Each row is one test case combining multiple conditions:
+
+Rule 1:  hours=valid(PT2H), spentOn=valid, workPackage=valid, activity=valid     -> expect 201
+Rule 2:  hours=valid(PT30M), spentOn=valid, workPackage=valid, activity=omitted  -> expect 201 (default activity applied)
+Rule 3:  hours=missing, spentOn=valid, workPackage=valid, activity=valid         -> expect 422
+Rule 4:  hours=valid, spentOn=missing, workPackage=valid, activity=valid         -> expect 422
+Rule 5:  hours=valid, spentOn=valid, workPackage=missing, activity=valid         -> expect 422
+Rule 6:  hours=zero(PT0S), spentOn=valid, workPackage=valid, activity=valid      -> expect 422
+Rule 7:  hours=negative(PT-1H), spentOn=valid, workPackage=valid, activity=valid -> expect 422
+Rule 8:  hours=valid, spentOn=invalid format, workPackage=valid, activity=valid  -> expect 422
+Rule 9:  hours=missing, spentOn=missing, workPackage=valid, activity=valid       -> expect 422
+Rule 10: hours=missing, spentOn=valid, workPackage=missing, activity=valid       -> expect 422
+Rule 11: hours=valid(PT1H30M), spentOn=valid, workPackage=valid, activity=valid  -> expect 201
+Rule 12: hours=invalid string, spentOn=valid, workPackage=valid, activity=valid  -> expect 422
+
+Write a complete Python test script that:
+1. Uses the requests library with Basic auth
+2. Sets credentials like this exactly:
+   import os
+   API_KEY = os.environ.get("OP_API_KEY")
+   BASE_URL = os.environ.get("OP_BASE_URL", "http://localhost:8080")
+   WORK_PACKAGE_ID = os.environ.get("OP_WORK_PACKAGE_ID", "39")
+   auth = ("apikey", API_KEY)
+3. Implements all 12 rules from the decision table above as separate test cases
+4. Always cleans up any successfully created time entries by deleting them after testing
+5. Prints PASS or FAIL for each rule with a short description and the actual status code on FAIL
+6. Never hardcodes credentials anywhere in the code
+7. Handles all HTTP errors gracefully without crashing
+
+Important code quality rules:
+- Do not use global variables
+- Do not declare any variable as both a parameter and global
+- Keep all test logic self-contained within each test function or in the main script body
+- Use a simple list to track created time entry IDs for cleanup
+- Every helper function must return ONLY the response object from requests, never a tuple or boolean
+- Check response.status_code directly in each test function, never inside a helper
+- To test "missing" fields, omit them from the request body entirely — do not pass None or empty string
+- Example of correct pattern:
+    def create_time_entry(hours=None, spent_on=None, work_package_id=None, include_activity=True):
+        body = {}
+        if hours is not None:
+            body["hours"] = hours
+        if spent_on is not None:
+            body["spentOn"] = spent_on
+        links = {}
+        if work_package_id is not None:
+            links["workPackage"] = {"href": f"/api/v3/work_packages/{work_package_id}"}
+        if include_activity:
+            links["activity"] = {"href": "/api/v3/time_entries/activities/1"}
+        if links:
+            body["_links"] = links
+        response = requests.post(f"{BASE_URL}/api/v3/time_entries", json=body, auth=auth)
+        return response
+
+    def test_rule_1(created_ids):
+        response = create_time_entry("PT2H", "2025-04-01", WORK_PACKAGE_ID, True)
+        if response.status_code == 201:
+            created_ids.append(response.json()["id"])
+            print("PASS: Rule 1 - all valid fields with activity")
+        else:
+            print(f"FAIL: Rule 1 (got {response.status_code})")
+
+Output only raw Python code with no explanation and no markdown.

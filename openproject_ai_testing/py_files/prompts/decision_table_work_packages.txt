@@ -1,0 +1,81 @@
+You are a software tester performing Decision Table Testing on the OpenProject REST API.
+
+Target endpoint: Work Packages
+Base URL: {BASE_URL}
+Authentication: Basic auth with username "apikey" and password "{API_KEY}"
+
+The Work Packages API works as follows:
+- GET    /api/v3/work_packages                    -> list all work packages
+- POST   /api/v3/projects/{id}/work_packages      -> create a work package in a project
+- GET    /api/v3/work_packages/{id}               -> get a work package
+- PATCH  /api/v3/work_packages/{id}               -> update a work package
+- DELETE /api/v3/work_packages/{id}               -> delete a work package
+
+When creating a work package, the request body must be JSON with these fields:
+- "subject": string (required, must not be empty, maximum 255 characters)
+- "description": object with "raw" string field (optional)
+- "_links": object containing:
+    - "type": object with "href" set to "/api/v3/types/1" (required)
+
+The project ID to use is {PROJECT_ID} and the project identifier is {PROJECT_IDENTIFIER}.
+
+Decision Table Testing means you test combinations of input conditions together and verify the outcome. Each rule in the decision table specifies the state of multiple inputs at once and the expected result.
+
+Here is the decision table to implement. Each row is one test case combining multiple conditions:
+
+Rule 1:  subject=valid, type=valid, description=omitted          -> expect 201
+Rule 2:  subject=valid, type=valid, description=with text        -> expect 201
+Rule 3:  subject=valid, type=valid, description=empty string     -> expect 201
+Rule 4:  subject=empty, type=valid, description=omitted          -> expect 422
+Rule 5:  subject=valid, type=missing _links entirely, description=omitted -> expect 201 (OpenProject applies default type)
+Rule 6:  subject=valid, type=invalid href, description=omitted   -> expect 422 (note: OpenProject may silently accept — record actual result)
+Rule 7:  subject=empty, type=missing _links, description=omitted -> expect 422
+Rule 8:  subject=toolong (256 chars), type=valid, description=omitted -> expect 422
+Rule 9:  subject=valid, type=valid, description=very long text (1000 chars) -> expect 201
+Rule 10: subject=missing entirely, type=valid, description=omitted -> expect 422
+Rule 11: subject=valid, type=missing _links, description=with text -> expect 201 (default type applied)
+Rule 12: subject=empty, type=valid, description=with text        -> expect 422
+
+Write a complete Python test script that:
+1. Uses the requests library with Basic auth
+2. Sets credentials like this exactly:
+   import os
+   API_KEY = os.environ.get("OP_API_KEY")
+   BASE_URL = os.environ.get("OP_BASE_URL", "http://localhost:8080")
+   PROJECT_ID = os.environ.get("OP_PROJECT_ID", "3")
+   auth = ("apikey", API_KEY)
+3. Creates work packages by posting to f"{BASE_URL}/api/v3/projects/{PROJECT_ID}/work_packages"
+4. Implements all 12 rules from the decision table above as separate test cases
+5. Always cleans up any successfully created work packages by deleting them after testing
+6. Prints PASS or FAIL for each rule with a short description and the actual status code on FAIL
+7. Never hardcodes credentials anywhere in the code
+8. Handles all HTTP errors gracefully without crashing
+
+Important code quality rules:
+- Do not use global variables
+- Do not declare any variable as both a parameter and global
+- Keep all test logic self-contained within each test function or in the main script body
+- Use a simple list to track created work package IDs for cleanup
+- Every helper function must return ONLY the response object from requests, never a tuple or boolean
+- Check response.status_code directly in each test function, never inside a helper
+- Example of correct pattern:
+    def create_work_package(subject, links=None, extra_fields=None):
+        body = {"subject": subject}
+        if links is not None:
+            body["_links"] = links
+        else:
+            body["_links"] = {"type": {"href": "/api/v3/types/1"}}
+        if extra_fields:
+            body.update(extra_fields)
+        response = requests.post(f"{BASE_URL}/api/v3/projects/{PROJECT_ID}/work_packages", json=body, auth=auth)
+        return response
+
+    def test_rule_1(created_ids):
+        response = create_work_package("Valid Subject")
+        if response.status_code == 201:
+            created_ids.append(response.json()["id"])
+            print("PASS: Rule 1 - valid subject, valid type, no description")
+        else:
+            print(f"FAIL: Rule 1 (got {response.status_code})")
+
+Output only raw Python code with no explanation and no markdown.

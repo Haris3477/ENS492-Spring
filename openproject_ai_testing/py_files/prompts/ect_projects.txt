@@ -1,0 +1,85 @@
+You are a software tester performing Equivalence Class Testing (ECT) on the OpenProject REST API.
+
+Target endpoint: Projects
+Base URL: {BASE_URL}
+Authentication: Basic auth with username "apikey" and password "{API_KEY}"
+
+The Projects API works as follows:
+- GET    /api/v3/projects           -> list all projects
+- POST   /api/v3/projects           -> create a project
+- GET    /api/v3/projects/{id}      -> get a project
+- PATCH  /api/v3/projects/{id}      -> update a project
+- DELETE /api/v3/projects/{id}      -> delete a project
+
+When creating or updating a project, the request body must be JSON with these fields:
+- "name": string (required, must not be empty, maximum 255 characters)
+- "identifier": string (required, must be unique, lowercase letters/numbers/hyphens only, maximum 100 characters)
+- "public": boolean (optional)
+- "description": object with "raw" string field (optional)
+
+Equivalence Class Testing means you divide inputs into classes where all values in a class are expected to behave the same way, then test one representative value from each class:
+
+For the "name" field:
+- Valid class: a normal string between 1 and 255 characters (should succeed with 201)
+- Invalid class 1: empty string (should fail with 422)
+- Invalid class 2: string longer than 255 characters (should fail with 422)
+
+For the "identifier" field:
+- Valid class 1: lowercase letters only (should succeed with 201)
+- Valid class 2: lowercase letters with hyphens (should succeed with 201)
+- Valid class 3: lowercase letters with numbers (should succeed with 201)
+- Invalid class 1: empty string (should fail with 422)
+- Invalid class 2: contains uppercase letters (should fail with 422)
+- Invalid class 3: contains spaces (should fail with 422)
+- Invalid class 4: contains special characters other than hyphens e.g. underscore or @ (should fail with 422)
+
+For the "public" field:
+- Valid class 1: true (should succeed with 201)
+- Valid class 2: false (should succeed with 201)
+
+For missing required fields:
+- Missing name entirely (should fail with 422)
+- Missing identifier entirely (should fail with 422)
+
+Write a complete Python test script that:
+1. Uses the requests library with Basic auth
+2. Sets credentials like this exactly:
+   import os
+   API_KEY = os.environ.get("OP_API_KEY")
+   BASE_URL = os.environ.get("OP_BASE_URL", "http://localhost:8080")
+   auth = ("apikey", API_KEY)
+3. Tests all the equivalence classes listed above
+4. Always cleans up any successfully created projects by deleting them after testing
+5. Prints PASS or FAIL for each test case with a short description and the actual status code on FAIL
+6. Generates unique identifiers using both timestamp AND 4 random characters like this:
+   import time, random, string
+   def unique_id():
+       suffix = ''.join(random.choices(string.ascii_lowercase, k=4))
+       return f"test-{int(time.time())}-{suffix}"
+7. Never hardcodes credentials anywhere in the code
+8. Handles all HTTP errors gracefully without crashing
+
+Important code quality rules:
+- Do not use global variables
+- Do not declare any variable as both a parameter and global
+- Keep all test logic self-contained within each test function or in the main script body
+- Use a simple list to track created project IDs for cleanup
+- Every helper function must return ONLY the response object from requests, never a tuple or boolean
+- Check response.status_code directly in each test function, never inside a helper
+- Example of correct pattern:
+    def create_project(name, identifier, extra_fields=None):
+        body = {"name": name, "identifier": identifier}
+        if extra_fields:
+            body.update(extra_fields)
+        response = requests.post(f"{BASE_URL}/api/v3/projects", json=body, auth=auth)
+        return response
+
+    def test_valid_name(created_ids):
+        response = create_project("My Test Project", unique_id())
+        if response.status_code == 201:
+            created_ids.append(response.json()["id"])
+            print("PASS: Valid name")
+        else:
+            print(f"FAIL: Valid name (got {response.status_code})")
+
+Output only raw Python code with no explanation and no markdown.

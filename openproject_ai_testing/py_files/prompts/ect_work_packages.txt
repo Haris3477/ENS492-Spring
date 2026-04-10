@@ -1,0 +1,82 @@
+You are a software tester performing Equivalence Class Testing (ECT) on the OpenProject REST API.
+
+Target endpoint: Work Packages
+Base URL: {BASE_URL}
+Authentication: Basic auth with username "apikey" and password "{API_KEY}"
+
+The Work Packages API works as follows:
+- GET    /api/v3/work_packages                    -> list all work packages
+- POST   /api/v3/projects/{id}/work_packages      -> create a work package in a project
+- GET    /api/v3/work_packages/{id}               -> get a work package
+- PATCH  /api/v3/work_packages/{id}               -> update a work package
+- DELETE /api/v3/work_packages/{id}               -> delete a work package
+
+When creating a work package, the request body must be JSON with these fields:
+- "subject": string (required, must not be empty, maximum 255 characters)
+- "description": object with "raw" string field (optional)
+- "_links": object containing:
+    - "type": object with "href" set to "/api/v3/types/1" (required)
+
+The project ID to use is {PROJECT_ID} and the project identifier is {PROJECT_IDENTIFIER}.
+
+Equivalence Class Testing means you divide inputs into classes where all values in a class are expected to behave the same way, then test one representative value from each class:
+
+For the "subject" field:
+- Valid class: a normal string between 1 and 255 characters (should succeed with 201)
+- Invalid class 1: empty string (should fail with 422)
+- Invalid class 2: string longer than 255 characters (should fail with 422)
+
+For the "_links.type" field:
+- Valid class: valid href pointing to an existing type e.g. "/api/v3/types/1" (should succeed with 201)
+- Invalid class 1: missing _links entirely (should succeed with 201 — OpenProject applies a default type)
+- Invalid class 2: href pointing to a non-existent type e.g. "/api/v3/types/99999" (should fail with 422)
+
+For the "description" field:
+- Valid class 1: description object with non-empty raw string (should succeed with 201)
+- Valid class 2: description object with empty raw string (should succeed with 201)
+- Valid class 3: description field omitted entirely (should succeed with 201)
+
+For missing required fields:
+- Missing subject entirely (should fail with 422)
+
+Write a complete Python test script that:
+1. Uses the requests library with Basic auth
+2. Sets credentials like this exactly:
+   import os
+   API_KEY = os.environ.get("OP_API_KEY")
+   BASE_URL = os.environ.get("OP_BASE_URL", "http://localhost:8080")
+   PROJECT_ID = os.environ.get("OP_PROJECT_ID", "3")
+   auth = ("apikey", API_KEY)
+3. Creates work packages by posting to f"{BASE_URL}/api/v3/projects/{PROJECT_ID}/work_packages"
+4. Tests all the equivalence classes listed above
+5. Always cleans up any successfully created work packages by deleting them after testing
+6. Prints PASS or FAIL for each test case with a short description and the actual status code on FAIL
+7. Never hardcodes credentials anywhere in the code
+8. Handles all HTTP errors gracefully without crashing
+
+Important code quality rules:
+- Do not use global variables
+- Do not declare any variable as both a parameter and global
+- Keep all test logic self-contained within each test function or in the main script body
+- Use a simple list to track created work package IDs for cleanup
+- Every helper function must return ONLY the response object from requests, never a tuple or boolean
+- Check response.status_code directly in each test function, never inside a helper
+- Example of correct pattern:
+    def create_work_package(subject, extra_fields=None):
+        body = {
+            "subject": subject,
+            "_links": {"type": {"href": "/api/v3/types/1"}}
+        }
+        if extra_fields:
+            body.update(extra_fields)
+        response = requests.post(f"{BASE_URL}/api/v3/projects/{PROJECT_ID}/work_packages", json=body, auth=auth)
+        return response
+
+    def test_empty_subject(created_ids):
+        response = create_work_package("")
+        if response.status_code == 422:
+            print("PASS: Empty subject")
+        else:
+            print(f"FAIL: Empty subject (got {response.status_code})")
+
+Output only raw Python code with no explanation and no markdown.

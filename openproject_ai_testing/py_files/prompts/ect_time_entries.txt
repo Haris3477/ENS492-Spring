@@ -1,0 +1,98 @@
+You are a software tester performing Equivalence Class Testing (ECT) on the OpenProject REST API.
+
+Target endpoint: Time Entries
+Base URL: {BASE_URL}
+Authentication: Basic auth with username "apikey" and password "{API_KEY}"
+
+The Time Entries API works as follows:
+- GET    /api/v3/time_entries        -> list all time entries
+- POST   /api/v3/time_entries        -> create a time entry
+- GET    /api/v3/time_entries/{id}   -> get a time entry
+- PATCH  /api/v3/time_entries/{id}   -> update a time entry
+- DELETE /api/v3/time_entries/{id}   -> delete a time entry
+
+When creating a time entry, the request body must be JSON with these fields:
+- "hours": string in ISO 8601 duration format (required, e.g. "PT1H" for 1 hour, "PT30M" for 30 minutes)
+- "spentOn": string in YYYY-MM-DD date format (required)
+- "_links": object containing:
+    - "workPackage": object with "href" set to "/api/v3/work_packages/{id}" (required)
+    - "activity": object with "href" set to "/api/v3/time_entries/activities/1" (optional — OpenProject applies a default activity if omitted)
+
+Use work package ID {WORK_PACKAGE_ID} for all tests. If no work package ID is available in the environment, use work package ID 1.
+
+Important known behaviors:
+- "PT0S" (zero hours) should be rejected with 422
+- Negative durations like "PT-1H" should be rejected with 422
+- Missing activity link is accepted — OpenProject silently applies a default activity
+
+Equivalence Class Testing means you divide inputs into classes where all values in a class are expected to behave the same way, then test one representative value from each class:
+
+For the "hours" field:
+- Valid class 1: a positive duration in hours e.g. "PT2H" (should succeed with 201)
+- Valid class 2: a positive duration in minutes e.g. "PT45M" (should succeed with 201)
+- Valid class 3: a combined duration e.g. "PT1H30M" (should succeed with 201)
+- Invalid class 1: missing hours field entirely (should fail with 422)
+- Invalid class 2: zero duration "PT0S" (should fail with 422)
+- Invalid class 3: negative duration "PT-1H" (should fail with 422)
+- Invalid class 4: invalid format string e.g. "2 hours" (should fail with 422)
+
+For the "spentOn" field:
+- Valid class: a valid date string in YYYY-MM-DD format (should succeed with 201)
+- Invalid class 1: missing spentOn field entirely (should fail with 422)
+- Invalid class 2: invalid date format e.g. "28-04-2025" (should fail with 422)
+- Invalid class 3: non-date string e.g. "yesterday" (should fail with 422)
+
+For the "_links.workPackage" field:
+- Valid class: valid href pointing to an existing work package (should succeed with 201)
+- Invalid class 1: missing workPackage link entirely (should fail with 422)
+- Invalid class 2: href pointing to a non-existent work package e.g. "/api/v3/work_packages/99999" (should fail with 422)
+
+For the "_links.activity" field:
+- Valid class: valid href pointing to an existing activity e.g. "/api/v3/time_entries/activities/1" (should succeed with 201)
+- Omitted class: activity link omitted entirely (should succeed with 201 — default applied)
+
+Write a complete Python test script that:
+1. Uses the requests library with Basic auth
+2. Sets credentials like this exactly:
+   import os
+   API_KEY = os.environ.get("OP_API_KEY")
+   BASE_URL = os.environ.get("OP_BASE_URL", "http://localhost:8080")
+   WORK_PACKAGE_ID = os.environ.get("OP_WORK_PACKAGE_ID", "1")
+   auth = ("apikey", API_KEY)
+3. Tests all the equivalence classes listed above
+4. Always cleans up any successfully created time entries by deleting them after testing
+5. Prints PASS or FAIL for each test case with a short description and the actual status code on FAIL
+6. Never hardcodes credentials anywhere in the code
+7. Handles all HTTP errors gracefully without crashing
+
+Important code quality rules:
+- Do not use global variables
+- Do not declare any variable as both a parameter and global
+- Keep all test logic self-contained within each test function or in the main script body
+- Use a simple list to track created time entry IDs for cleanup
+- Every helper function must return ONLY the response object from requests, never a tuple or boolean
+- Check response.status_code directly in each test function, never inside a helper
+- Example of correct pattern:
+    def create_time_entry(hours, spent_on, extra_links=None):
+        body = {
+            "hours": hours,
+            "spentOn": spent_on,
+            "_links": {
+                "workPackage": {"href": f"/api/v3/work_packages/{WORK_PACKAGE_ID}"},
+                "activity": {"href": "/api/v3/time_entries/activities/1"}
+            }
+        }
+        if extra_links:
+            body["_links"].update(extra_links)
+        response = requests.post(f"{BASE_URL}/api/v3/time_entries", json=body, auth=auth)
+        return response
+
+    def test_valid_hours(created_ids):
+        response = create_time_entry("PT2H", "2025-04-01")
+        if response.status_code == 201:
+            created_ids.append(response.json()["id"])
+            print("PASS: Valid hours PT2H")
+        else:
+            print(f"FAIL: Valid hours PT2H (got {response.status_code})")
+
+Output only raw Python code with no explanation and no markdown.

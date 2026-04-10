@@ -1,0 +1,78 @@
+You are a software tester performing Decision Table Testing on the OpenProject REST API.
+
+Target endpoint: Projects
+Base URL: {BASE_URL}
+Authentication: Basic auth with username "apikey" and password "{API_KEY}"
+
+The Projects API works as follows:
+- GET    /api/v3/projects           -> list all projects
+- POST   /api/v3/projects           -> create a project
+- GET    /api/v3/projects/{id}      -> get a project
+- PATCH  /api/v3/projects/{id}      -> update a project
+- DELETE /api/v3/projects/{id}      -> delete a project
+
+When creating or updating a project, the request body must be JSON with these fields:
+- "name": string (required, must not be empty, maximum 255 characters)
+- "identifier": string (required, must be unique, lowercase letters/numbers/hyphens only, maximum 100 characters)
+- "public": boolean (optional)
+- "description": object with "raw" string field (optional)
+
+Decision Table Testing means you test combinations of input conditions together and verify the outcome. Each rule in the decision table specifies the state of multiple inputs at once and the expected result.
+
+Here is the decision table to implement. Each row is one test case combining multiple conditions:
+
+Rule 1:  name=valid, identifier=valid, public=omitted, description=omitted      -> expect 201
+Rule 2:  name=valid, identifier=valid, public=true, description=with text        -> expect 201
+Rule 3:  name=valid, identifier=valid, public=false, description=empty string    -> expect 201
+Rule 4:  name=empty, identifier=valid, public=omitted, description=omitted       -> expect 422
+Rule 5:  name=valid, identifier=empty, public=omitted, description=omitted       -> expect 422 (note: OpenProject may accept this — record actual result)
+Rule 6:  name=empty, identifier=empty, public=omitted, description=omitted       -> expect 422
+Rule 7:  name=valid, identifier=uppercase, public=omitted, description=omitted   -> expect 422
+Rule 8:  name=valid, identifier=with spaces, public=omitted, description=omitted -> expect 422
+Rule 9:  name=toolong (256 chars), identifier=valid, public=omitted, description=omitted -> expect 422
+Rule 10: name=valid, identifier=toolong (101 chars), public=omitted, description=omitted -> expect 422
+Rule 11: name=valid, identifier=valid, public=true, description=omitted          -> expect 201
+Rule 12: name=empty, identifier=valid, public=true, description=with text        -> expect 422
+
+Write a complete Python test script that:
+1. Uses the requests library with Basic auth
+2. Sets credentials like this exactly:
+   import os
+   API_KEY = os.environ.get("OP_API_KEY")
+   BASE_URL = os.environ.get("OP_BASE_URL", "http://localhost:8080")
+   auth = ("apikey", API_KEY)
+3. Implements all 12 rules from the decision table above as separate test cases
+4. Always cleans up any successfully created projects by deleting them after testing
+5. Prints PASS or FAIL for each rule with a short description and the actual status code on FAIL
+6. Generates unique identifiers using both timestamp AND 4 random characters like this:
+   import time, random, string
+   def unique_id():
+       suffix = ''.join(random.choices(string.ascii_lowercase, k=4))
+       return f"test-{int(time.time())}-{suffix}"
+7. Never hardcodes credentials anywhere in the code
+8. Handles all HTTP errors gracefully without crashing
+
+Important code quality rules:
+- Do not use global variables
+- Do not declare any variable as both a parameter and global
+- Keep all test logic self-contained within each test function or in the main script body
+- Use a simple list to track created project IDs for cleanup
+- Every helper function must return ONLY the response object from requests, never a tuple or boolean
+- Check response.status_code directly in each test function, never inside a helper
+- Example of correct pattern:
+    def create_project(name, identifier, extra_fields=None):
+        body = {"name": name, "identifier": identifier}
+        if extra_fields:
+            body.update(extra_fields)
+        response = requests.post(f"{BASE_URL}/api/v3/projects", json=body, auth=auth)
+        return response
+
+    def test_rule_1(created_ids):
+        response = create_project("Valid Project", unique_id())
+        if response.status_code == 201:
+            created_ids.append(response.json()["id"])
+            print("PASS: Rule 1 - valid name, valid identifier, no public, no description")
+        else:
+            print(f"FAIL: Rule 1 (got {response.status_code})")
+
+Output only raw Python code with no explanation and no markdown.

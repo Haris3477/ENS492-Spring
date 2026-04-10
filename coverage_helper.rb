@@ -1,16 +1,13 @@
-# /usr/src/redmine/config/initializers/coverage_helper.rb
 $VERBOSE = nil
 
-# Try to require simplecov if possible
 begin
   require 'simplecov'
 rescue LoadError
   puts "Could not load simplecov gem"
 end
 
-# Only start coverage if the gem is loaded
 if defined?(SimpleCov)
-  SimpleCov.command_name 'API Integration Tests'
+  SimpleCov.command_name "worker-#{Process.pid}"
   SimpleCov.start 'rails' do
     coverage_dir '/usr/src/redmine/coverage'
     track_files 'app/**/*.rb'
@@ -24,7 +21,17 @@ if defined?(SimpleCov)
     use_merging true
     merge_timeout 3600
   end
-  puts "SimpleCov started successfully! Report will be in /usr/src/redmine/coverage"
+
+  # Save coverage after every 10th request
+  $request_count = 0
+  ActiveSupport::Notifications.subscribe('process_action.action_controller') do |*args|
+    $request_count += 1
+    if $request_count % 1 == 0
+      SimpleCov.result.format!
+    end
+  end
+
+  puts "SimpleCov started successfully! PID: #{Process.pid}"
 else
   puts "SimpleCov not defined. Coverage will not be tracked."
 end

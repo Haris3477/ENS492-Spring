@@ -1,0 +1,105 @@
+You are a software tester performing Equivalence Class Testing (ECT) on the OpenProject REST API.
+
+Target endpoint: Users
+Base URL: {BASE_URL}
+Authentication: Basic auth with username "apikey" and password "{API_KEY}"
+
+The Users API works as follows:
+- GET    /api/v3/users        -> list all users
+- POST   /api/v3/users        -> create a user
+- GET    /api/v3/users/{id}   -> get a user
+- PATCH  /api/v3/users/{id}   -> update a user
+- DELETE /api/v3/users/{id}   -> delete a user (returns 403 — do not test deletion)
+
+When creating a user, the request body must be JSON with these fields:
+- "login": string (required, must be unique)
+- "firstName": string (required)
+- "lastName": string (required)
+- "email": string (required, must be a valid email format, must be unique)
+- "password": string (required, minimum 10 characters)
+
+Important known behaviors:
+- User deletion via the API returns 403 MissingPermission even for admin users. Do NOT attempt to delete users via the API. Instead, track created user IDs and print a cleanup notice at the end listing all IDs that must be manually deleted through the admin web interface.
+- OpenProject does not enforce a maximum length on login or firstName fields.
+- The minimum password length is 10 characters.
+
+Equivalence Class Testing means you divide inputs into classes where all values in a class are expected to behave the same way, then test one representative value from each class:
+
+For the "login" field:
+- Valid class: a normal unique alphanumeric string (should succeed with 201)
+- Invalid class 1: empty string (should fail with 422)
+- Invalid class 2: duplicate login already used in this test run (should fail with 422)
+
+For the "email" field:
+- Valid class: a properly formatted unique email address (should succeed with 201)
+- Invalid class 1: missing @ symbol (should fail with 422)
+- Invalid class 2: missing domain part e.g. "user@" (should fail with 422)
+- Invalid class 3: duplicate email already used in this test run (should fail with 422)
+
+For the "password" field:
+- Valid class: a string of exactly 10 or more characters (should succeed with 201)
+- Invalid class 1: empty string (should fail with 422)
+- Invalid class 2: a string of 9 characters (should fail with 422)
+
+For the "firstName" field:
+- Valid class: a non-empty string (should succeed with 201)
+- Invalid class: empty string (should fail with 422)
+
+For the "lastName" field:
+- Valid class: a non-empty string (should succeed with 201)
+- Invalid class: empty string (should fail with 422)
+
+For missing required fields:
+- Missing login entirely (should fail with 422)
+- Missing email entirely (should fail with 422)
+- Missing password entirely (should fail with 422)
+
+Write a complete Python test script that:
+1. Uses the requests library with Basic auth
+2. Sets credentials like this exactly:
+   import os
+   API_KEY = os.environ.get("OP_API_KEY")
+   BASE_URL = os.environ.get("OP_BASE_URL", "http://localhost:8080")
+   auth = ("apikey", API_KEY)
+3. Tests all the equivalence classes listed above
+4. Does NOT attempt to delete users via the API (deletion returns 403)
+5. Tracks all successfully created user IDs in a list and at the end prints:
+   "CLEANUP NEEDED: Manually delete user IDs via admin UI: {list of IDs}"
+6. Generates unique values using both timestamp AND 4 random characters like this:
+   import time, random, string
+   def unique_suffix():
+       suffix = ''.join(random.choices(string.ascii_lowercase, k=4))
+       return f"{int(time.time())}{suffix}"
+7. Prints PASS or FAIL for each test case with a short description and the actual status code on FAIL
+8. Never hardcodes credentials anywhere in the code
+9. Handles all HTTP errors gracefully without crashing
+
+Important code quality rules:
+- Do not use global variables
+- Do not declare any variable as both a parameter and global
+- Keep all test logic self-contained within each test function or in the main script body
+- Use a simple list to track created user IDs for the cleanup notice
+- Every helper function must return ONLY the response object from requests, never a tuple or boolean
+- Check response.status_code directly in each test function, never inside a helper
+- Example of correct pattern:
+    def create_user(login, email, password, first_name, last_name):
+        body = {
+            "login": login,
+            "email": email,
+            "password": password,
+            "firstName": first_name,
+            "lastName": last_name
+        }
+        response = requests.post(f"{BASE_URL}/api/v3/users", json=body, auth=auth)
+        return response
+
+    def test_valid_user(created_ids):
+        s = unique_suffix()
+        response = create_user(f"user{s}", f"user{s}@test.com", "validpass123", "Test", "User")
+        if response.status_code == 201:
+            created_ids.append(response.json()["id"])
+            print("PASS: Valid user creation")
+        else:
+            print(f"FAIL: Valid user creation (got {response.status_code})")
+
+Output only raw Python code with no explanation and no markdown.
