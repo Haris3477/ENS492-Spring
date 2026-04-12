@@ -24,6 +24,8 @@ services:
       - "8080:80"
     volumes:
       - opdata:/var/openproject/assets
+      - ./coverage_helper.rb:/app/config/initializers/coverage_helper.rb
+      - ./coverage:/app/coverage
 
 volumes:
   pgdata:
