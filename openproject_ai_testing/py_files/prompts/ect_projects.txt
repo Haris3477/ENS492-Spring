@@ -83,3 +83,8 @@ Important code quality rules:
             print(f"FAIL: Valid name (got {response.status_code})")
 
 Output only raw Python code with no explanation and no markdown.
+
+- When appending a created resource ID to the tracking list, always store response.json()["id"] directly as a plain value. Never store the entire response.json() dict in the list.
+- Every test function MUST be defined with exactly one parameter: created_ids. Never define a test function with zero parameters.
+- Correct: def test_valid_name(created_ids):
+- Wrong:   def test_valid_name():

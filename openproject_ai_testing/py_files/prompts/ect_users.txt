@@ -103,3 +103,9 @@ Important code quality rules:
             print(f"FAIL: Valid user creation (got {response.status_code})")
 
 Output only raw Python code with no explanation and no markdown.
+
+- When appending a created user ID to the tracking list, always store response.json()["id"] directly as a plain integer or string. Never store the entire response.json() dict in the list.
+- Every test function MUST be defined with exactly one parameter: created_ids. Never define a test function with zero parameters.
+- Correct: def test_valid_user(created_ids):
+- Wrong:   def test_valid_user():
+- When accessing created IDs later for cleanup, always reference them directly as IDs (e.g. for uid in created_ids: print(uid)) — never as dicts.
