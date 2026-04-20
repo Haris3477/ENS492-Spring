@@ -1,14 +1,11 @@
-import subprocess
 import json
+import os
 
-CONTAINER = "openproject_ai_testing-openproject-1"
+RESULTSET_PATH = os.path.join(os.path.dirname(__file__), '..', 'coverage', '.resultset.json')
 
 def read_coverage():
-    result = subprocess.run(
-        ["docker", "exec", CONTAINER, "cat", "/app/coverage/.resultset.json"],
-        capture_output=True, text=True
-    )
-    data = json.loads(result.stdout)
+    with open(RESULTSET_PATH, 'r') as f:
+        data = json.load(f)
 
     best_percentage = 0
 

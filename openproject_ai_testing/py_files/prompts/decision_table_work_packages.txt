@@ -11,30 +11,115 @@ The Work Packages API works as follows:
 - PATCH  /api/v3/work_packages/{id}               -> update a work package
 - DELETE /api/v3/work_packages/{id}               -> delete a work package
 
-When creating a work package, the request body must be JSON with these fields:
-- "subject": string (required, must not be empty, maximum 255 characters)
-- "description": object with "raw" string field (optional)
-- "_links": object containing:
-    - "type": object with "href" set to "/api/v3/types/1" (required)
-
 The project ID to use is {PROJECT_ID} and the project identifier is {PROJECT_IDENTIFIER}.
 
-Decision Table Testing means you test combinations of input conditions together and verify the outcome. Each rule in the decision table specifies the state of multiple inputs at once and the expected result.
+=== REAL FIELD INFORMATION (extracted from the live system) ===
 
-Here is the decision table to implement. Each row is one test case combining multiple conditions:
+TYPES (use in "_links.type.href"):
+- /api/v3/types/1  -> Task
+- /api/v3/types/2  -> Milestone
+- /api/v3/types/3  -> Summary task
+- /api/v3/types/4  -> Feature
+- /api/v3/types/5  -> Epic
+- /api/v3/types/6  -> User story
+- /api/v3/types/7  -> Bug
 
-Rule 1:  subject=valid, type=valid, description=omitted          -> expect 201
-Rule 2:  subject=valid, type=valid, description=with text        -> expect 201
-Rule 3:  subject=valid, type=valid, description=empty string     -> expect 201
-Rule 4:  subject=empty, type=valid, description=omitted          -> expect 422
-Rule 5:  subject=valid, type=missing _links entirely, description=omitted -> expect 201 (OpenProject applies default type)
-Rule 6:  subject=valid, type=invalid href, description=omitted   -> expect 422 (note: OpenProject may silently accept — record actual result)
-Rule 7:  subject=empty, type=missing _links, description=omitted -> expect 422
-Rule 8:  subject=toolong (256 chars), type=valid, description=omitted -> expect 422
-Rule 9:  subject=valid, type=valid, description=very long text (1000 chars) -> expect 201
-Rule 10: subject=missing entirely, type=valid, description=omitted -> expect 422
-Rule 11: subject=valid, type=missing _links, description=with text -> expect 201 (default type applied)
-Rule 12: subject=empty, type=valid, description=with text        -> expect 422
+STATUSES (use in "_links.status.href"):
+- /api/v3/statuses/1  -> New
+- /api/v3/statuses/2  -> In specification
+- /api/v3/statuses/3  -> Specified
+- /api/v3/statuses/4  -> Confirmed
+- /api/v3/statuses/5  -> To be scheduled
+- /api/v3/statuses/6  -> Scheduled
+- /api/v3/statuses/7  -> In progress
+- /api/v3/statuses/8  -> Developed
+- /api/v3/statuses/9  -> In testing
+- /api/v3/statuses/10 -> Tested
+- /api/v3/statuses/11 -> Test failed
+- /api/v3/statuses/12 -> Closed
+- /api/v3/statuses/13 -> On hold
+- /api/v3/statuses/14 -> Rejected
+
+PRIORITIES (use in "_links.priority.href"):
+- /api/v3/priorities/7  -> Low
+- /api/v3/priorities/8  -> Normal
+- /api/v3/priorities/9  -> High
+- /api/v3/priorities/10 -> Immediate
+
+=== WORK PACKAGE FIELDS ===
+
+When creating or updating a work package, the request body is JSON with these fields:
+
+- "subject": string (required, must not be empty, maximum 255 characters)
+- "description": object with "raw" string field (optional)
+- "startDate": string in "YYYY-MM-DD" format (optional)
+- "dueDate": string in "YYYY-MM-DD" format (optional, must not be before startDate)
+- "estimatedTime": string in ISO 8601 duration format e.g. "PT2H" for 2 hours, "PT30M" for 30 minutes (optional)
+- "percentageDone": integer between 0 and 100 inclusive (optional)
+- "_links": object containing:
+    - "type": object with "href" pointing to a valid type (optional, defaults to Task)
+    - "status": object with "href" pointing to a valid status (optional, defaults to New)
+    - "priority": object with "href" pointing to a valid priority (optional, defaults to Normal)
+    - "assignee": object with "href" pointing to a valid user e.g. "/api/v3/users/1" (optional)
+
+=== DECISION TABLE TEST CASES ===
+
+Decision Table Testing means you test combinations of conditions to ensure the system behaves correctly for each combination. Each rule is a unique combination of conditions that produces a specific outcome.
+
+Test the following combinations:
+
+RULE 1 - All required fields valid, all optional fields omitted:
+  subject: "Valid Subject", type: /api/v3/types/1, no other fields
+  Expected: 201
+
+RULE 2 - All fields fully populated with valid values:
+  subject: "Full Work Package", type: /api/v3/types/4 (Feature),
+  status: /api/v3/statuses/7 (In progress), priority: /api/v3/priorities/9 (High),
+  description: {"raw": "Full description"}, startDate: "2025-01-01", dueDate: "2025-12-31",
+  estimatedTime: "PT4H", percentageDone: 50
+  Expected: 201
+
+RULE 3 - Valid subject, invalid type, valid priority:
+  subject: "Test", type: /api/v3/types/99999, priority: /api/v3/priorities/8
+  Expected: 422
+
+RULE 4 - Valid subject, valid type, invalid priority:
+  subject: "Test", type: /api/v3/types/1, priority: /api/v3/priorities/99999
+  Expected: 422
+
+RULE 5 - Valid subject, valid type, invalid status:
+  subject: "Test", type: /api/v3/types/1, status: /api/v3/statuses/99999
+  Expected: 422
+
+RULE 6 - Missing subject, all other fields valid:
+  no subject field, type: /api/v3/types/1, priority: /api/v3/priorities/8
+  Expected: 422
+
+RULE 7 - Empty subject, all other fields valid:
+  subject: "", type: /api/v3/types/1, priority: /api/v3/priorities/8
+  Expected: 422
+
+RULE 8 - Valid subject, valid type, dueDate before startDate:
+  subject: "Test", type: /api/v3/types/1, startDate: "2025-12-31", dueDate: "2025-01-01"
+  Expected: 422
+
+RULE 9 - Valid subject, valid type, percentageDone out of range:
+  subject: "Test", type: /api/v3/types/1, percentageDone: 150
+  Expected: 422
+
+RULE 10 - Valid subject, valid type, invalid estimatedTime format:
+  subject: "Test", type: /api/v3/types/1, estimatedTime: "3 hours"
+  Expected: 422
+
+RULE 11 - Valid subject, Bug type, Closed status, Immediate priority:
+  subject: "Critical Bug", type: /api/v3/types/7 (Bug),
+  status: /api/v3/statuses/12 (Closed), priority: /api/v3/priorities/10 (Immediate)
+  Expected: 201
+
+RULE 12 - Valid subject, Milestone type, valid dates, no priority:
+  subject: "Project Milestone", type: /api/v3/types/2 (Milestone),
+  startDate: "2025-06-01", dueDate: "2025-06-30"
+  Expected: 201
 
 Write a complete Python test script that:
 1. Uses the requests library with Basic auth
@@ -45,9 +130,9 @@ Write a complete Python test script that:
    PROJECT_ID = os.environ.get("OP_PROJECT_ID", "3")
    auth = ("apikey", API_KEY)
 3. Creates work packages by posting to f"{BASE_URL}/api/v3/projects/{PROJECT_ID}/work_packages"
-4. Implements all 12 rules from the decision table above as separate test cases
+4. Tests ALL 12 rules listed above
 5. Always cleans up any successfully created work packages by deleting them after testing
-6. Prints PASS or FAIL for each rule with a short description and the actual status code on FAIL
+6. Prints PASS or FAIL for each test case with a short description and the actual status code on FAIL
 7. Never hardcodes credentials anywhere in the code
 8. Handles all HTTP errors gracefully without crashing
 
@@ -59,23 +144,21 @@ Important code quality rules:
 - Every helper function must return ONLY the response object from requests, never a tuple or boolean
 - Check response.status_code directly in each test function, never inside a helper
 - Example of correct pattern:
-    def create_work_package(subject, links=None, extra_fields=None):
-        body = {"subject": subject}
-        if links is not None:
-            body["_links"] = links
-        else:
-            body["_links"] = {"type": {"href": "/api/v3/types/1"}}
+    def create_work_package(subject, extra_fields=None):
+        body = {
+            "subject": subject,
+            "_links": {"type": {"href": "/api/v3/types/1"}}
+        }
         if extra_fields:
             body.update(extra_fields)
         response = requests.post(f"{BASE_URL}/api/v3/projects/{PROJECT_ID}/work_packages", json=body, auth=auth)
         return response
 
-    def test_rule_1(created_ids):
-        response = create_work_package("Valid Subject")
-        if response.status_code == 201:
-            created_ids.append(response.json()["id"])
-            print("PASS: Rule 1 - valid subject, valid type, no description")
+    def test_empty_subject(created_ids):
+        response = create_work_package("")
+        if response.status_code == 422:
+            print("PASS: Empty subject")
         else:
-            print(f"FAIL: Rule 1 (got {response.status_code})")
+            print(f"FAIL: Empty subject (got {response.status_code})")
 
 Output only raw Python code with no explanation and no markdown.

@@ -1,0 +1,113 @@
+You are a software tester performing Boundary Value Testing (BVT) on the OpenProject REST API.
+
+Target endpoint: Memberships
+Base URL: {BASE_URL}
+Authentication: Basic auth with username "apikey" and password "{API_KEY}"
+
+The Memberships API works as follows:
+- GET    /api/v3/memberships          -> list all memberships
+- POST   /api/v3/memberships          -> create a membership
+- GET    /api/v3/memberships/{id}     -> get a membership
+- PATCH  /api/v3/memberships/{id}     -> update a membership
+- DELETE /api/v3/memberships/{id}     -> delete a membership
+
+When creating a membership, the request body must be JSON with these fields:
+- "_links.project": object with "href" pointing to a project e.g. {"href": "/api/v3/projects/1"}
+- "_links.principal": object with "href" pointing to a user e.g. {"href": "/api/v3/users/4"}
+- "_links.roles": array of role objects e.g. [{"href": "/api/v3/roles/3"}]
+
+Real data available in this system:
+- Projects: 1=Demo project, 2=Scrum project, 3=Test project
+- Users: 4=Admin user (already a member of projects 1 and 2)
+- Roles: 1=Non member, 2=Anonymous, 3=Member, 4=Reader, 5=Project admin, 6=Work package editor, 7=Work package commenter, 8=Work package viewer
+
+Important known behaviors:
+- User deletion via the API returns 403. To test with fresh users, create them first via POST /api/v3/users then use their IDs.
+- Deleting a membership via DELETE /api/v3/memberships/{id} returns 204 on success.
+- Creating a membership for a user already in a project returns 422.
+
+Boundary Value Testing means you test at the exact boundaries of valid input ranges:
+
+For roles array:
+- Minimum valid: exactly 1 role (should succeed with 201)
+- Multiple roles: 2 roles at once (should succeed with 201)
+- Empty roles array: [] (should fail with 422)
+- Missing roles entirely (should fail with 422)
+
+For project link:
+- Valid project href (should succeed with 201)
+- Non-existent project href e.g. /api/v3/projects/99999 (should fail with 422)
+- Missing project link (should fail with 422)
+
+For principal link:
+- Valid user href (should succeed with 201)
+- Non-existent user href e.g. /api/v3/users/99999 (should fail with 422)
+- Missing principal link (should fail with 422)
+
+Write a complete Python test script that:
+1. Uses the requests library with Basic auth
+2. Sets credentials like this exactly:
+   import os
+   API_KEY = os.environ.get("OP_API_KEY")
+   BASE_URL = os.environ.get("OP_BASE_URL", "http://localhost:8080")
+   auth = ("apikey", API_KEY)
+3. Before running membership tests, creates 3 fresh users via POST /api/v3/users to use as principals. Store their IDs in a list called created_user_ids.
+4. Tests all the boundary cases listed above using the freshly created users as principals
+5. Cleans up all successfully created memberships by deleting them after testing
+6. Does NOT attempt to delete users via the API (deletion returns 403). At the end prints: "CLEANUP NEEDED: Manually delete user IDs via admin UI: {list}"
+7. Generates unique values using both timestamp AND 4 random characters:
+   import time, random, string
+   def unique_suffix():
+       suffix = ''.join(random.choices(string.ascii_lowercase, k=4))
+       return f"{int(time.time())}{suffix}"
+8. Prints PASS or FAIL for each test case with a short description and actual status code on FAIL
+9. Never hardcodes credentials anywhere in the code
+10. Handles all HTTP errors gracefully without crashing
+
+Important code quality rules:
+- Do not use global variables
+- Every test function MUST be defined with exactly one parameter: created_ids
+- Every helper function must return ONLY the response object from requests, never a tuple or boolean
+- Check response.status_code directly in each test function, never inside a helper
+- When appending a created resource ID to the tracking list, always store response.json()["id"] directly as a plain value
+- When accessing created IDs later, always reference them directly as plain values, never as dicts
+
+Output only raw Python code with no explanation and no markdown.
+
+- When creating a user to use as a principal, the request body must use exactly these field names:
+  {"login": "...", "email": "...", "password": "validpass123", "firstName": "Test", "lastName": "Member"}
+  Use POST /api/v3/users with this body. A successful creation returns 201.
+  If user creation fails, print a warning and skip tests that depend on that user.
+
+- The membership request body must use this exact structure with _links nested:
+  {
+    "_links": {
+      "project": {"href": "/api/v3/projects/3"},
+      "principal": {"href": "/api/v3/users/124"},
+      "roles": [{"href": "/api/v3/roles/3"}]
+    }
+  }
+  Do NOT put project, principal, or roles at the top level of the body.
+
+CRITICAL — always build hrefs using string concatenation, NEVER f-strings with nested braces:
+CORRECT:   "href": "/api/v3/users/" + str(user_id)
+WRONG:     "href": f"/api/v3/users/{user_id}"   <- causes SyntaxError
+
+CRITICAL — the complete correct membership body looks exactly like this:
+body = {
+    "_links": {
+        "project": {"href": "/api/v3/projects/3"},
+        "principal": {"href": "/api/v3/users/" + str(user_id)},
+        "roles": [{"href": "/api/v3/roles/3"}]
+    }
+}
+response = requests.post(BASE_URL + "/api/v3/memberships", json=body, auth=auth)
+
+- NEVER append to the created_ids list inside a helper function. Only append inside the test function, and only after confirming response.status_code == 201. Example:
+    def test_valid_membership(created_ids):
+        response = create_membership(project_href, user_href, roles)
+        if response.status_code == 201:
+            created_ids.append(response.json()["id"])
+            print("PASS: ...")
+        else:
+            print(f"FAIL: ... (got {response.status_code})")

@@ -1,0 +1,96 @@
+You are a software tester performing Decision Table Testing on the OpenProject REST API.
+
+Target endpoint: Memberships
+Base URL: {BASE_URL}
+Authentication: Basic auth with username "apikey" and password "{API_KEY}"
+
+The Memberships API works as follows:
+- POST   /api/v3/memberships          -> create a membership
+- DELETE /api/v3/memberships/{id}     -> delete a membership (returns 204)
+
+When creating a membership, the request body must be JSON with these fields:
+- "_links.project": object with "href" e.g. {"href": "/api/v3/projects/1"}
+- "_links.principal": object with "href" e.g. {"href": "/api/v3/users/4"}
+- "_links.roles": array of role objects e.g. [{"href": "/api/v3/roles/3"}]
+
+Real data available in this system:
+- Projects: 1=Demo project, 2=Scrum project, 3=Test project
+- Roles: 3=Member, 4=Reader, 5=Project admin, 6=Work package editor
+
+Important known behaviors:
+- User deletion via the API returns 403. Create fresh users for testing and track their IDs for manual cleanup.
+- Duplicate membership (same user already in same project) returns 422.
+
+Decision Table — each rule is a combination of conditions with one expected outcome:
+
+| Rule | project | principal | roles | Expected |
+|------|---------|-----------|-------|----------|
+| 1  | valid | valid user | single valid role | 201 |
+| 2  | valid | valid user | multiple valid roles | 201 |
+| 3  | valid | valid user | empty roles array | 422 |
+| 4  | valid | valid user | missing roles | 422 |
+| 5  | valid | non-existent user | valid role | 422 |
+| 6  | valid | missing principal | valid role | 422 |
+| 7  | non-existent project | valid user | valid role | 422 |
+| 8  | missing project | valid user | valid role | 422 |
+| 9  | valid | valid user | non-existent role href | 422 |
+| 10 | valid | valid user | valid role, then duplicate | 422 |
+| 11 | valid | valid user | single role, then PATCH to add role | 200 |
+| 12 | valid | valid user | valid role, then DELETE | 204 |
+
+Write a complete Python test script that:
+1. Uses the requests library with Basic auth
+2. Sets credentials like this exactly:
+   import os
+   API_KEY = os.environ.get("OP_API_KEY")
+   BASE_URL = os.environ.get("OP_BASE_URL", "http://localhost:8080")
+   auth = ("apikey", API_KEY)
+3. Before running tests, creates 6 fresh users via POST /api/v3/users to use as principals
+4. Tests all 12 rules above
+5. Cleans up all successfully created memberships by deleting them
+6. Does NOT attempt to delete users. At the end prints: "CLEANUP NEEDED: Manually delete user IDs via admin UI: {list}"
+7. Generates unique values using both timestamp AND 4 random characters:
+   import time, random, string
+   def unique_suffix():
+       suffix = ''.join(random.choices(string.ascii_lowercase, k=4))
+       return f"{int(time.time())}{suffix}"
+8. Prints PASS or FAIL for each test case with a short description and actual status code on FAIL
+9. Never hardcodes credentials anywhere in the code
+10. Handles all HTTP errors gracefully without crashing
+
+Important code quality rules:
+- Do not use global variables
+- Every test function MUST be defined with exactly one parameter: created_ids
+- Every helper function must return ONLY the response object from requests, never a tuple or boolean
+- Check response.status_code directly in each test function, never inside a helper
+- When appending a created resource ID to the tracking list, always store response.json()["id"] directly as a plain value
+- When accessing created IDs later, always reference them directly as plain values, never as dicts
+
+Output only raw Python code with no explanation and no markdown.
+
+- When creating a user to use as a principal, the request body must use exactly these field names:
+  {"login": "...", "email": "...", "password": "validpass123", "firstName": "Test", "lastName": "Member"}
+  Use POST /api/v3/users with this body. A successful creation returns 201.
+  If user creation fails, print a warning and skip tests that depend on that user.
+
+- The membership request body must use this exact structure with _links nested:
+  {
+    "_links": {
+      "project": {"href": "/api/v3/projects/3"},
+      "principal": {"href": "/api/v3/users/124"},
+      "roles": [{"href": "/api/v3/roles/3"}]
+    }
+  }
+  Do NOT put project, principal, or roles at the top level of the body.
+- Never use f-strings with nested curly braces. Instead build hrefs using string concatenation:
+  href = "/api/v3/users/" + str(user_id)
+
+- To test "missing roles", do NOT pass None to a helper function. Instead build the request body without the roles key at all:
+  body = {"_links": {"project": {"href": "..."}, "principal": {"href": "..."}}}
+  requests.post(f"{BASE_URL}/api/v3/memberships", json=body, auth=auth)
+- To test "missing project", build the body without the project key.
+- To test "missing principal", build the body without the principal key.
+
+- Each rule that expects a 201 response MUST use a different user as the principal, because adding the same user to the same project twice returns 422.
+- Use created_ids[0] for Rule 1, created_ids[1] for Rule 2, created_ids[2] for Rule 10, created_ids[3] for Rule 11, created_ids[4] for Rule 12.
+- Never reuse the same user ID across multiple rules that create memberships in the same project.

@@ -1,0 +1,111 @@
+You are a software tester performing Equivalence Class Testing (ECT) on the OpenProject REST API.
+
+Target endpoint: Memberships
+Base URL: {BASE_URL}
+Authentication: Basic auth with username "apikey" and password "{API_KEY}"
+
+The Memberships API works as follows:
+- GET    /api/v3/memberships          -> list all memberships
+- POST   /api/v3/memberships          -> create a membership (returns 201)
+- GET    /api/v3/memberships/{id}     -> get a membership (returns 200)
+- DELETE /api/v3/memberships/{id}     -> delete a membership (returns 204)
+
+The ONLY correct way to create a membership is this exact body structure:
+{
+    "_links": {
+        "project": {"href": "/api/v3/projects/3"},
+        "principal": {"href": "/api/v3/users/" + str(user_id)},
+        "roles": [{"href": "/api/v3/roles/3"}]
+    }
+}
+Do NOT put project, principal, or roles at the top level. They MUST be inside "_links".
+
+Real data in this system:
+- Projects: 1=Demo project, 2=Scrum project, 3=Test project
+- Roles: 3=Member, 4=Reader, 5=Project admin, 6=Work package editor
+
+Important known behaviors:
+- User deletion returns 403. Track created user IDs for manual cleanup.
+- A user can only be added to a project once. Adding the same user to the same project twice returns 422.
+- Non-existent role hrefs return 500 (not 422). Do not test non-existent roles.
+- When listing memberships, the correct key is: response.json()["_embedded"]["elements"]
+
+Before running tests, create 6 fresh users like this:
+    def create_user():
+        s = unique_suffix()
+        body = {"login": "user" + s, "email": "user" + s + "@test.com",
+                "password": "validpass123", "firstName": "Test", "lastName": "Member"}
+        return requests.post(BASE_URL + "/api/v3/users", json=body, auth=auth)
+
+Build ALL hrefs using string concatenation, NEVER f-strings with nested braces:
+CORRECT: "/api/v3/users/" + str(user_id)
+WRONG:   f"/api/v3/users/{user_id}"
+
+Equivalence classes to test:
+
+For _links.project:
+- Valid class: existing project href -> expect 201
+- Invalid class 1: non-existent project href -> expect 422
+- Invalid class 2: missing project key entirely -> expect 422
+
+For _links.principal:
+- Valid class: existing user href -> expect 201
+- Invalid class 1: non-existent user href -> expect 422
+- Invalid class 2: missing principal key entirely -> expect 422
+
+For _links.roles:
+- Valid class 1: single valid role -> expect 201
+- Valid class 2: two valid roles -> expect 201
+- Invalid class 1: empty array [] -> expect 422
+- Invalid class 2: missing roles key entirely -> expect 422
+
+For GET /api/v3/memberships/{id}:
+- Valid class: existing membership ID -> expect 200
+- Invalid class: non-existent ID 99999 -> expect 404
+
+Use a DIFFERENT user for EVERY test that expects 201.
+
+Write a complete Python test script that:
+1. Uses the requests library with Basic auth
+2. Sets credentials like this exactly:
+   import os
+   API_KEY = os.environ.get("OP_API_KEY")
+   BASE_URL = os.environ.get("OP_BASE_URL", "http://localhost:8080")
+   auth = ("apikey", API_KEY)
+3. Creates 6 fresh users before tests and stores their IDs as plain integers in a list
+4. Tests all equivalence classes above using a different user for each 201 case
+5. Cleans up all created memberships by deleting them
+6. At the end prints: "CLEANUP NEEDED: Manually delete user IDs via admin UI: {list}"
+7. Generates unique values using:
+   import time, random, string
+   def unique_suffix():
+       suffix = ''.join(random.choices(string.ascii_lowercase, k=4))
+       return f"{int(time.time())}{suffix}"
+8. Prints PASS or FAIL for each test with actual status code on FAIL
+9. Never hardcodes credentials
+10. Handles all HTTP errors gracefully
+
+Important code quality rules:
+- Do not use global variables
+- Every test function MUST be defined with exactly one parameter: created_ids
+- Every helper function must return ONLY the response object, never a tuple or boolean
+- Check response.status_code directly in each test function, never inside a helper
+- Store created resource IDs as plain integers: created_ids.append(response.json()["id"])
+- Never store the full response dict in the list
+
+Output only raw Python code with no explanation and no markdown.
+
+ABSOLUTE RULE: Do NOT create a create_membership() helper function that accepts roles as a parameter. Instead, build the full request body inline inside each test function like this:
+
+def test_missing_roles(created_ids):
+    body = {
+        "_links": {
+            "project": {"href": "/api/v3/projects/3"},
+            "principal": {"href": "/api/v3/users/" + str(created_ids[0])}
+        }
+    }
+    response = requests.post(BASE_URL + "/api/v3/memberships", json=body, auth=auth)
+    if response.status_code == 422:
+        print("PASS: Missing roles")
+    else:
+        print(f"FAIL: Missing roles (got {response.status_code})")

@@ -1,0 +1,65 @@
+You are a software tester performing Decision Table Testing on the OpenProject REST API.
+
+Target endpoint: Versions
+Base URL: {BASE_URL}
+Authentication: Basic auth with username "apikey" and password "{API_KEY}"
+
+The Versions API works as follows:
+- POST   /api/v3/versions             -> create a version
+- PATCH  /api/v3/versions/{id}        -> update a version
+- DELETE /api/v3/versions/{id}        -> delete a version (returns 204)
+
+When creating a version, the request body must be JSON with these fields:
+- "name": string (required, min 1 char, max 60 chars)
+- "_links.definingProject": object with "href" (required) e.g. {"href": "/api/v3/projects/3"}
+- "description": object with "raw" string (optional)
+- "startDate": YYYY-MM-DD string (optional)
+- "_links.status": object with "href" — valid: "open", "locked", "closed" (optional)
+- "_links.sharing": object with "href" — valid: "none", "descendants", "hierarchy", "tree", "system" (optional)
+
+Real data: Projects: 1=Demo project, 2=Scrum project, 3=Test project (use project 3)
+
+Decision Table — each rule is a combination of conditions with one expected outcome:
+
+| Rule | name | project | status | sharing | startDate | Expected |
+|------|------|---------|--------|---------|-----------|----------|
+| 1  | valid | valid | omitted | omitted | omitted | 201 |
+| 2  | valid | valid | "open" | "none" | valid date | 201 |
+| 3  | valid | valid | "locked" | "tree" | omitted | 201 |
+| 4  | valid | valid | "closed" | "system" | omitted | 201 |
+| 5  | empty | valid | omitted | omitted | omitted | 422 |
+| 6  | missing | valid | omitted | omitted | omitted | 422 |
+| 7  | too long (61 chars) | valid | omitted | omitted | omitted | 422 |
+| 8  | valid | non-existent | omitted | omitted | omitted | 422 |
+| 9  | valid | missing | omitted | omitted | omitted | 422 |
+| 10 | valid | valid | omitted | omitted | invalid date format | 422 |
+| 11 | valid | valid | valid, then PATCH name | omitted | omitted | 200 |
+| 12 | valid | valid | omitted | omitted | omitted, then DELETE | 204 |
+
+Write a complete Python test script that:
+1. Uses the requests library with Basic auth
+2. Sets credentials like this exactly:
+   import os
+   API_KEY = os.environ.get("OP_API_KEY")
+   BASE_URL = os.environ.get("OP_BASE_URL", "http://localhost:8080")
+   auth = ("apikey", API_KEY)
+3. Tests all 12 rules above
+4. Cleans up all successfully created versions by deleting them after testing
+5. Generates unique names using both timestamp AND 4 random characters:
+   import time, random, string
+   def unique_suffix():
+       suffix = ''.join(random.choices(string.ascii_lowercase, k=4))
+       return f"{int(time.time())}{suffix}"
+6. Prints PASS or FAIL for each test case with a short description and actual status code on FAIL
+7. Never hardcodes credentials anywhere in the code
+8. Handles all HTTP errors gracefully without crashing
+
+Important code quality rules:
+- Do not use global variables
+- Every test function MUST be defined with exactly one parameter: created_ids
+- Every helper function must return ONLY the response object from requests, never a tuple or boolean
+- Check response.status_code directly in each test function, never inside a helper
+- When appending a created resource ID to the tracking list, always store response.json()["id"] directly as a plain value
+- When accessing created IDs later, always reference them directly as plain values, never as dicts
+
+Output only raw Python code with no explanation and no markdown.

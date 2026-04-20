@@ -11,33 +11,101 @@ The Work Packages API works as follows:
 - PATCH  /api/v3/work_packages/{id}               -> update a work package
 - DELETE /api/v3/work_packages/{id}               -> delete a work package
 
-When creating a work package, the request body must be JSON with these fields:
-- "subject": string (required, must not be empty, maximum 255 characters)
-- "description": object with "raw" string field (optional)
-- "_links": object containing:
-    - "type": object with "href" set to "/api/v3/types/1" (required)
-
 The project ID to use is {PROJECT_ID} and the project identifier is {PROJECT_IDENTIFIER}.
 
-Equivalence Class Testing means you divide inputs into classes where all values in a class are expected to behave the same way, then test one representative value from each class:
+=== REAL FIELD INFORMATION (extracted from the live system) ===
 
-For the "subject" field:
-- Valid class: a normal string between 1 and 255 characters (should succeed with 201)
-- Invalid class 1: empty string (should fail with 422)
-- Invalid class 2: string longer than 255 characters (should fail with 422)
+TYPES (use in "_links.type.href"):
+- /api/v3/types/1  -> Task
+- /api/v3/types/2  -> Milestone
+- /api/v3/types/3  -> Summary task
+- /api/v3/types/4  -> Feature
+- /api/v3/types/5  -> Epic
+- /api/v3/types/6  -> User story
+- /api/v3/types/7  -> Bug
 
-For the "_links.type" field:
-- Valid class: valid href pointing to an existing type e.g. "/api/v3/types/1" (should succeed with 201)
-- Invalid class 1: missing _links entirely (should succeed with 201 — OpenProject applies a default type)
-- Invalid class 2: href pointing to a non-existent type e.g. "/api/v3/types/99999" (should fail with 422)
+STATUSES (use in "_links.status.href"):
+- /api/v3/statuses/1  -> New
+- /api/v3/statuses/2  -> In specification
+- /api/v3/statuses/3  -> Specified
+- /api/v3/statuses/4  -> Confirmed
+- /api/v3/statuses/5  -> To be scheduled
+- /api/v3/statuses/6  -> Scheduled
+- /api/v3/statuses/7  -> In progress
+- /api/v3/statuses/8  -> Developed
+- /api/v3/statuses/9  -> In testing
+- /api/v3/statuses/10 -> Tested
+- /api/v3/statuses/11 -> Test failed
+- /api/v3/statuses/12 -> Closed
+- /api/v3/statuses/13 -> On hold
+- /api/v3/statuses/14 -> Rejected
 
-For the "description" field:
-- Valid class 1: description object with non-empty raw string (should succeed with 201)
-- Valid class 2: description object with empty raw string (should succeed with 201)
-- Valid class 3: description field omitted entirely (should succeed with 201)
+PRIORITIES (use in "_links.priority.href"):
+- /api/v3/priorities/7  -> Low
+- /api/v3/priorities/8  -> Normal
+- /api/v3/priorities/9  -> High
+- /api/v3/priorities/10 -> Immediate
 
-For missing required fields:
-- Missing subject entirely (should fail with 422)
+=== WORK PACKAGE FIELDS ===
+
+When creating or updating a work package, the request body is JSON with these fields:
+
+- "subject": string (required, must not be empty, maximum 255 characters)
+- "description": object with "raw" string field (optional)
+- "startDate": string in "YYYY-MM-DD" format (optional)
+- "dueDate": string in "YYYY-MM-DD" format (optional, must not be before startDate)
+- "estimatedTime": string in ISO 8601 duration format e.g. "PT2H" for 2 hours, "PT30M" for 30 minutes (optional)
+- "percentageDone": integer between 0 and 100 inclusive (optional)
+- "_links": object containing:
+    - "type": object with "href" pointing to a valid type (optional, defaults to Task)
+    - "status": object with "href" pointing to a valid status (optional, defaults to New)
+    - "priority": object with "href" pointing to a valid priority (optional, defaults to Normal)
+    - "assignee": object with "href" pointing to a valid user e.g. "/api/v3/users/1" (optional)
+
+=== EQUIVALENCE CLASS TEST CASES ===
+
+Equivalence Class Testing means you divide inputs into classes where all values in a class behave the same way, then test one representative value from each class.
+
+SUBJECT field:
+- Valid class: normal string 1–255 characters (expect 201)
+- Invalid class 1: empty string (expect 422)
+- Invalid class 2: string longer than 255 characters (expect 422)
+- Invalid class 3: missing subject entirely (expect 422)
+
+TYPE field:
+- Valid class 1: valid type href e.g. /api/v3/types/1 (expect 201)
+- Valid class 2: valid type href for a different type e.g. /api/v3/types/7 for Bug (expect 201)
+- Invalid class 1: non-existent type href e.g. /api/v3/types/99999 (expect 422)
+- Valid class 3: missing _links.type entirely (expect 201, OpenProject applies default type)
+
+STATUS field:
+- Valid class 1: valid open status e.g. /api/v3/statuses/1 for New (expect 201)
+- Valid class 2: valid closed status e.g. /api/v3/statuses/12 for Closed (expect 201)
+- Invalid class: non-existent status href e.g. /api/v3/statuses/99999 (expect 422)
+
+PRIORITY field:
+- Valid class 1: low priority /api/v3/priorities/7 (expect 201)
+- Valid class 2: high priority /api/v3/priorities/9 (expect 201)
+- Invalid class: non-existent priority href e.g. /api/v3/priorities/99999 (expect 422)
+
+DESCRIPTION field:
+- Valid class 1: description with non-empty raw string (expect 201)
+- Valid class 2: description with empty raw string (expect 201)
+- Valid class 3: description field omitted entirely (expect 201)
+
+DATE field:
+- Valid class: startDate before dueDate (expect 201)
+- Invalid class 1: dueDate before startDate (expect 422)
+- Invalid class 2: invalid date format e.g. "not-a-date" (expect 422)
+
+ESTIMATED TIME field:
+- Valid class: proper ISO 8601 duration e.g. "PT2H" (expect 201)
+- Invalid class: wrong format e.g. "2 hours" (expect 422)
+
+PERCENTAGE DONE field:
+- Valid class 1: value within range e.g. 50 (expect 201)
+- Invalid class 1: value below range e.g. -1 (expect 422)
+- Invalid class 2: value above range e.g. 101 (expect 422)
 
 Write a complete Python test script that:
 1. Uses the requests library with Basic auth
@@ -48,7 +116,7 @@ Write a complete Python test script that:
    PROJECT_ID = os.environ.get("OP_PROJECT_ID", "3")
    auth = ("apikey", API_KEY)
 3. Creates work packages by posting to f"{BASE_URL}/api/v3/projects/{PROJECT_ID}/work_packages"
-4. Tests all the equivalence classes listed above
+4. Tests ALL the equivalence classes listed above
 5. Always cleans up any successfully created work packages by deleting them after testing
 6. Prints PASS or FAIL for each test case with a short description and the actual status code on FAIL
 7. Never hardcodes credentials anywhere in the code

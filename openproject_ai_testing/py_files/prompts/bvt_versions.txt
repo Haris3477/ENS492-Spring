@@ -1,0 +1,69 @@
+You are a software tester performing Boundary Value Testing (BVT) on the OpenProject REST API.
+
+Target endpoint: Versions
+Base URL: {BASE_URL}
+Authentication: Basic auth with username "apikey" and password "{API_KEY}"
+
+The Versions API works as follows:
+- GET    /api/v3/versions             -> list all versions
+- POST   /api/v3/versions             -> create a version
+- GET    /api/v3/versions/{id}        -> get a version
+- PATCH  /api/v3/versions/{id}        -> update a version
+- DELETE /api/v3/versions/{id}        -> delete a version
+
+When creating a version, the request body must be JSON with these fields:
+- "name": string (required, minimum 1 character, maximum 60 characters)
+- "_links.definingProject": object with "href" pointing to a project (required) e.g. {"href": "/api/v3/projects/3"}
+- "description": object with "raw" string field (optional)
+- "startDate": string in YYYY-MM-DD format (optional)
+- "_links.status": object with "href" (optional) — valid values: open, locked, closed e.g. {"href": "open"}
+- "_links.sharing": object with "href" (optional) — valid values: none, descendants, hierarchy, tree, system e.g. {"href": "none"}
+
+Real data available in this system:
+- Projects: 1=Demo project, 2=Scrum project, 3=Test project (use project 3)
+
+Boundary Value Testing means you test at the exact boundaries of valid input ranges:
+
+For "name" field (min 1, max 60 characters):
+- Below minimum: empty string "" (should fail with 422)
+- At minimum: exactly 1 character (should succeed with 201)
+- Just below maximum: 59 characters (should succeed with 201)
+- At maximum: exactly 60 characters (should succeed with 201)
+- Above maximum: 61 characters (should fail with 422)
+
+For "_links.definingProject":
+- Valid project href (should succeed with 201)
+- Non-existent project href e.g. /api/v3/projects/99999 (should fail with 422)
+- Missing project link entirely (should fail with 422)
+
+For "startDate":
+- Valid date format YYYY-MM-DD (should succeed with 201)
+- Invalid date format e.g. "28-04-2025" (should fail with 422)
+
+Write a complete Python test script that:
+1. Uses the requests library with Basic auth
+2. Sets credentials like this exactly:
+   import os
+   API_KEY = os.environ.get("OP_API_KEY")
+   BASE_URL = os.environ.get("OP_BASE_URL", "http://localhost:8080")
+   auth = ("apikey", API_KEY)
+3. Tests all the boundary cases listed above
+4. Cleans up all successfully created versions by deleting them after testing
+5. Generates unique names using both timestamp AND 4 random characters:
+   import time, random, string
+   def unique_suffix():
+       suffix = ''.join(random.choices(string.ascii_lowercase, k=4))
+       return f"{int(time.time())}{suffix}"
+6. Prints PASS or FAIL for each test case with a short description and actual status code on FAIL
+7. Never hardcodes credentials anywhere in the code
+8. Handles all HTTP errors gracefully without crashing
+
+Important code quality rules:
+- Do not use global variables
+- Every test function MUST be defined with exactly one parameter: created_ids
+- Every helper function must return ONLY the response object from requests, never a tuple or boolean
+- Check response.status_code directly in each test function, never inside a helper
+- When appending a created resource ID to the tracking list, always store response.json()["id"] directly as a plain value
+- When accessing created IDs later, always reference them directly as plain values, never as dicts
+
+Output only raw Python code with no explanation and no markdown.

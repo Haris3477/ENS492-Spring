@@ -15,7 +15,7 @@ When creating a time entry, the request body must be JSON with these fields:
 - "hours": string in ISO 8601 duration format (required, e.g. "PT1H" = 1 hour, "PT0S" = zero)
 - "spentOn": string in YYYY-MM-DD date format (required)
 - "_links": object containing:
-    - "workPackage": object with "href" set to "/api/v3/work_packages/39" (required)
+    - "workPackage": object with "href" set to "/api/v3/work_packages/37" (required)
     - "activity": object with "href" set to "/api/v3/time_entries/activities/1" (required)
 
 Boundary Value Testing means testing edges and boundaries:
@@ -53,7 +53,7 @@ def base_payload():
         "hours": "PT1H",
         "spentOn": "2026-03-27",
         "_links": {
-            "workPackage": {"href": "/api/v3/work_packages/39"},
+            "workPackage": {"href": "/api/v3/work_packages/37"},
             "activity": {"href": "/api/v3/time_entries/activities/1"}
         }
     }

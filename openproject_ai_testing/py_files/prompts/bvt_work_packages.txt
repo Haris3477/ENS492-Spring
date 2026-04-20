@@ -11,21 +11,93 @@ The Work Packages API works as follows:
 - PATCH  /api/v3/work_packages/{id}               -> update a work package
 - DELETE /api/v3/work_packages/{id}               -> delete a work package
 
-When creating a work package, the request body must be JSON with these fields:
-- "subject": string (required, must not be empty, maximum 255 characters)
-- "description": object with "raw" string field (optional)
-- "_links": object containing:
-    - "type": object with "href" set to "/api/v3/types/1" (required)
-
 The project ID to use is {PROJECT_ID} and the project identifier is {PROJECT_IDENTIFIER}.
 
-Boundary Value Testing means you must test the edges and boundaries of input values:
-- Empty subject (should fail with 422)
-- Subject at exactly 1 character (should succeed with 201)
-- Subject at exactly 255 characters (should succeed with 201)
-- Subject at exactly 256 characters (should fail with 422)
-- Missing _links.type (should fail with 422)
-- Valid work package with description (should succeed with 201)
+=== REAL FIELD INFORMATION (extracted from the live system) ===
+
+TYPES (use in "_links.type.href"):
+- /api/v3/types/1  -> Task
+- /api/v3/types/2  -> Milestone
+- /api/v3/types/3  -> Summary task
+- /api/v3/types/4  -> Feature
+- /api/v3/types/5  -> Epic
+- /api/v3/types/6  -> User story
+- /api/v3/types/7  -> Bug
+
+STATUSES (use in "_links.status.href"):
+- /api/v3/statuses/1  -> New
+- /api/v3/statuses/2  -> In specification
+- /api/v3/statuses/3  -> Specified
+- /api/v3/statuses/4  -> Confirmed
+- /api/v3/statuses/5  -> To be scheduled
+- /api/v3/statuses/6  -> Scheduled
+- /api/v3/statuses/7  -> In progress
+- /api/v3/statuses/8  -> Developed
+- /api/v3/statuses/9  -> In testing
+- /api/v3/statuses/10 -> Tested
+- /api/v3/statuses/11 -> Test failed
+- /api/v3/statuses/12 -> Closed
+- /api/v3/statuses/13 -> On hold
+- /api/v3/statuses/14 -> Rejected
+
+PRIORITIES (use in "_links.priority.href"):
+- /api/v3/priorities/7  -> Low
+- /api/v3/priorities/8  -> Normal
+- /api/v3/priorities/9  -> High
+- /api/v3/priorities/10 -> Immediate
+
+=== WORK PACKAGE FIELDS ===
+
+When creating or updating a work package, the request body is JSON with these fields:
+
+- "subject": string (required, must not be empty, maximum 255 characters)
+- "description": object with "raw" string field (optional)
+- "startDate": string in "YYYY-MM-DD" format (optional)
+- "dueDate": string in "YYYY-MM-DD" format (optional, must not be before startDate)
+- "estimatedTime": string in ISO 8601 duration format e.g. "PT2H" for 2 hours, "PT30M" for 30 minutes (optional)
+- "percentageDone": integer between 0 and 100 inclusive (optional)
+- "_links": object containing:
+    - "type": object with "href" pointing to a valid type (optional, defaults to Task)
+    - "status": object with "href" pointing to a valid status (optional, defaults to New)
+    - "priority": object with "href" pointing to a valid priority (optional, defaults to Normal)
+    - "assignee": object with "href" pointing to a valid user e.g. "/api/v3/users/1" (optional)
+
+=== BOUNDARY VALUE TEST CASES ===
+
+You must test ALL of the following boundary cases:
+
+SUBJECT boundaries:
+- Empty subject "" (expect 422)
+- Subject with exactly 1 character (expect 201)
+- Subject with exactly 255 characters (expect 201)
+- Subject with exactly 256 characters (expect 422)
+
+TYPE boundaries:
+- Valid type ID at lower bound: /api/v3/types/1 (expect 201)
+- Valid type ID at upper bound: /api/v3/types/7 (expect 201)
+- Invalid type ID just above upper bound: /api/v3/types/8 (expect 422)
+- Invalid type ID 0: /api/v3/types/0 (expect 422)
+
+PRIORITY boundaries:
+- Valid priority at lower bound: /api/v3/priorities/7 (expect 201)
+- Valid priority at upper bound: /api/v3/priorities/10 (expect 201)
+- Invalid priority just above upper bound: /api/v3/priorities/11 (expect 422)
+- Invalid priority just below lower bound: /api/v3/priorities/6 (expect 422)
+
+PERCENTAGE DONE boundaries:
+- percentageDone = 0 (expect 201)
+- percentageDone = 100 (expect 201)
+- percentageDone = -1 (expect 422)
+- percentageDone = 101 (expect 422)
+
+DATE boundaries:
+- Valid startDate and dueDate where dueDate is after startDate (expect 201)
+- dueDate before startDate (expect 422)
+- Invalid date format for startDate e.g. "13-2024-01" (expect 422)
+
+ESTIMATED TIME boundaries:
+- Valid estimatedTime "PT1H" (expect 201)
+- Invalid estimatedTime format e.g. "2hours" (expect 422)
 
 Write a complete Python test script that:
 1. Uses the requests library with Basic auth
@@ -36,7 +108,7 @@ Write a complete Python test script that:
    PROJECT_ID = os.environ.get("OP_PROJECT_ID", "3")
    auth = ("apikey", API_KEY)
 3. Creates work packages by posting to f"{BASE_URL}/api/v3/projects/{PROJECT_ID}/work_packages"
-4. Tests all the boundary cases listed above
+4. Tests ALL the boundary cases listed above
 5. Always cleans up any successfully created work packages by deleting them after testing
 6. Prints PASS or FAIL for each test case with a short description and the actual status code on FAIL
 7. Never hardcodes credentials anywhere in the code
@@ -68,3 +140,4 @@ Important code quality rules:
             print(f"FAIL: Empty subject (got {response.status_code})")
 
 Output only raw Python code with no explanation and no markdown.
+- NEVER append to created_ids inside a helper function. Only append inside the test function after confirming response.status_code == 201.

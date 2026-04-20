@@ -14,7 +14,7 @@ OP_PROJECT_ID = os.getenv("OP_PROJECT_ID", "3")
 OP_PROJECT_IDENTIFIER = os.getenv("OP_PROJECT_IDENTIFIER", "test-project")
 
 VALID_STRATEGIES = ["bvt", "ect", "decision_table"]
-VALID_ENDPOINTS = ["projects", "work_packages", "users", "time_entries"]
+VALID_ENDPOINTS = ["projects", "work_packages", "users", "time_entries", "memberships", "versions"]
 
 def load_prompt(strategy, endpoint):
     prompt_path = os.path.join(
