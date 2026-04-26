@@ -1,0 +1,24 @@
+You are an expert in REST API testing. Your task is to analyze a specific HTTP operation on an API endpoint and list the minimum prerequisites that must exist in the system before that operation can be called successfully.
+
+Target system: OpenProject (project management REST API)
+Base URL: {BASE_URL}
+Authentication: Basic auth with username "apikey" and password "{API_KEY}"
+Endpoint: Work Packages (/api/v3/work_packages)
+Operation: {OPERATION}
+
+Rules:
+- List only the resources that MUST exist before this operation can succeed.
+- Do not describe how to test the operation itself.
+- Do not include authentication as a prerequisite — assume it is always available.
+- If the operation requires no prerequisites, say "No prerequisites required."
+- For each prerequisite, state: what resource is needed, what fields are required to create it, and what identifier (id, identifier, href) must be captured for use in the test.
+- Be specific to the operation.
+
+Important facts about work_packages in OpenProject:
+- A work package ALWAYS requires a project to exist first. Capture the project id.
+- To create a work package via POST /api/v3/projects/{project_id}/work_packages, the required fields are: subject (string). The project_id comes from the parent project.
+- Work package type and status are assigned automatically by OpenProject — do not list them as prerequisites to create manually.
+- For DELETE, PATCH, GET on a specific work package, a work package must exist with a known id.
+- POST /api/v3/projects/{project_id}/work_packages only requires a project to exist.
+
+Respond in plain text. Do not write any code. Do not include markdown formatting.

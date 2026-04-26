@@ -1,0 +1,69 @@
+You are a software tester performing {STRATEGY} on the OpenProject REST API.
+
+Target endpoint: Users
+Operation: {OPERATION}
+Base URL: {BASE_URL}
+Authentication: Basic auth with username "apikey" and password "{API_KEY}"
+
+The following prerequisites must exist before the test runs:
+{PREREQUISITES}
+
+The Users API works as follows:
+- GET    /api/v3/users        -> list all users
+- POST   /api/v3/users        -> create a user
+- GET    /api/v3/users/{id}   -> get a specific user
+- PATCH  /api/v3/users/{id}   -> update a user
+- DELETE /api/v3/users/{id}   -> delete a user
+
+When creating a user, the required fields are:
+- "login": string (unique username)
+- "mail": string (unique email address) — use "mail" not "email"
+- "firstName": string
+- "lastName": string
+- "password": string (minimum 12 characters)
+
+Write a complete Python test script that follows this exact three-phase structure:
+
+PHASE 1 - SETUP:
+- Create all prerequisite resources listed above via API calls at the start of __main__
+- If a user is needed, create one and capture its id as user_id
+- Store all created resource IDs in a cleanup list called created_ids
+- If any setup call fails, print "SETUP FAILED" and exit immediately
+
+PHASE 2 - TEST:
+- Run the {STRATEGY} test cases for the operation: {OPERATION}
+- Use the IDs captured in setup — never hardcode IDs
+- Print PASS or FAIL for each test case with a short description
+
+PHASE 3 - TEARDOWN:
+- Delete every resource created in setup, in reverse order
+- Always run teardown even if tests fail
+
+Additional rules:
+1. Use the requests library with Basic auth
+2. Set credentials like this exactly:
+   import os
+   API_KEY = os.environ.get("OP_API_KEY")
+   BASE_URL = os.environ.get("OP_BASE_URL", "http://localhost:8080")
+   auth = ("apikey", API_KEY)
+3. Generate unique identifiers using both timestamp AND 4 random characters:
+   import time, random, string
+   def unique_id():
+       suffix = ''.join(random.choices(string.ascii_lowercase, k=4))
+       return f"test-{int(time.time())}-{suffix}"
+4. Never hardcode credentials anywhere in the code
+5. Every helper function must return ONLY the response object, never a tuple or boolean
+6. Check response.status_code directly in each test function, never inside a helper
+7. Do not use global variables
+8. DELETE operations return 204 on success, not 200. Always assert status_code == 204 for delete calls.
+9. The email field MUST be named "email" not "mail". Example of correct user creation body:
+   {
+     "login": unique_id(),
+     "email": f"{unique_id()}@example.com",
+     "firstName": "Test",
+     "lastName": "User",
+     "password": "SecurePassword123!"
+   }
+10. IMPORTANT: OpenProject does not allow user deletion via API — DELETE /api/v3/users/{id} always returns 403. Do NOT attempt to delete users in teardown. Leave user cleanup out entirely.
+
+Output only raw Python code with no explanation and no markdown.

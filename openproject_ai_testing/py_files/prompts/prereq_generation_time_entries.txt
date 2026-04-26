@@ -1,0 +1,66 @@
+You are a software tester performing {STRATEGY} on the OpenProject REST API.
+
+Target endpoint: Time Entries
+Operation: {OPERATION}
+Base URL: {BASE_URL}
+Authentication: Basic auth with username "apikey" and password "{API_KEY}"
+
+The following prerequisites must exist before the test runs:
+{PREREQUISITES}
+
+The Time Entries API works as follows:
+- GET    /api/v3/time_entries        -> list all time entries
+- POST   /api/v3/time_entries        -> create a time entry
+- GET    /api/v3/time_entries/{id}   -> get a specific time entry
+- PATCH  /api/v3/time_entries/{id}   -> update a time entry
+- DELETE /api/v3/time_entries/{id}   -> delete a time entry
+
+When creating a time entry, the request body must use HAL+JSON _links format:
+{
+  "hours": "PT1H",
+  "spentOn": "2024-01-15",
+  "_links": {
+    "project": { "href": "/api/v3/projects/{project_id}" },
+    "workPackage": { "href": "/api/v3/work_packages/{work_package_id}" },
+  }
+}
+
+Write a complete Python test script that follows this exact three-phase structure:
+
+PHASE 1 - SETUP:
+- Create all prerequisite resources at the start of __main__ in this order:
+  1. Create a project via POST /api/v3/projects (fields: name, identifier). Capture its id.
+  2. Create a work package via POST /api/v3/projects/{project_id}/work_packages (field: subject). Capture its id.
+  3. If a time entry is needed for the operation, create one and capture its id.
+- Store created resource IDs in a cleanup list called created_ids as tuples: (resource_type, id)
+- If any setup call fails, print "SETUP FAILED" and exit immediately
+
+PHASE 2 - TEST:
+- Run the {STRATEGY} test cases for the operation: {OPERATION}
+- Use the IDs captured in setup — never hardcode IDs
+- Print PASS or FAIL for each test case with a short description
+
+PHASE 3 - TEARDOWN:
+- Delete resources in reverse order: time entries first, then work packages, then projects
+- Always run teardown even if tests fail
+
+Additional rules:
+1. Use the requests library with Basic auth
+2. Set credentials like this exactly:
+   import os
+   API_KEY = os.environ.get("OP_API_KEY")
+   BASE_URL = os.environ.get("OP_BASE_URL", "http://localhost:8080")
+   auth = ("apikey", API_KEY)
+3. Generate unique identifiers using both timestamp AND 4 random characters:
+   import time, random, string
+   def unique_id():
+       suffix = ''.join(random.choices(string.ascii_lowercase, k=4))
+       return f"test-{int(time.time())}-{suffix}"
+4. Never hardcode credentials anywhere in the code
+5. Every helper function must return ONLY the response object, never a tuple or boolean
+6. Check response.status_code directly in each test function, never inside a helper
+7. Do not use global variables
+8. DELETE operations return 204 on success, not 200. Always assert status_code == 204 for delete calls.
+9. Always use _links with href values for project and workPackage — never pass them as plain fields.
+
+Output only raw Python code with no explanation and no markdown.
