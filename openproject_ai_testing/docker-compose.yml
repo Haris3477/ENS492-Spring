@@ -20,6 +20,9 @@ services:
       DATABASE_URL: postgresql://openproject:openproject_password@db/openproject
       OPENPROJECT_HTTPS: "false"
       RAILS_ENV: production
+      OPENPROJECT_WEB_WORKERS: "1"
+      RAILS_MIN_THREADS: "1"
+      RAILS_MAX_THREADS: "8"
     ports:
       - "8080:80"
     volumes:

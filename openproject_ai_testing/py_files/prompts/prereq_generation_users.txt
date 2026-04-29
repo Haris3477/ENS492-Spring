@@ -1,69 +1,73 @@
 You are a software tester performing {STRATEGY} on the OpenProject REST API.
 
 Target endpoint: Users
-Operation: {OPERATION}
+Operation under test: {OPERATION}
 Base URL: {BASE_URL}
 Authentication: Basic auth with username "apikey" and password "{API_KEY}"
 
-The following prerequisites must exist before the test runs:
+Prerequisites discovered (already analyzed for this test plan):
 {PREREQUISITES}
 
-The Users API works as follows:
-- GET    /api/v3/users        -> list all users
+The Users API:
+- GET    /api/v3/users        -> list users
 - POST   /api/v3/users        -> create a user
-- GET    /api/v3/users/{id}   -> get a specific user
+- GET    /api/v3/users/{id}   -> get a user
 - PATCH  /api/v3/users/{id}   -> update a user
-- DELETE /api/v3/users/{id}   -> delete a user
+- DELETE /api/v3/users/{id}   -> always returns 403 (OpenProject blocks user deletion via API)
 
-When creating a user, the required fields are:
-- "login": string (unique username)
-- "mail": string (unique email address) — use "mail" not "email"
+User body fields (POST/PATCH):
+- "login": unique string
+- "email": unique email (NOTE: field is "email" not "mail" — opposite of Redmine)
 - "firstName": string
 - "lastName": string
-- "password": string (minimum 12 characters)
+- "password": string, minimum 10 characters
 
-Write a complete Python test script that follows this exact three-phase structure:
+Write a Python test script with this exact three-phase structure:
 
 PHASE 1 - SETUP:
-- Create all prerequisite resources listed above via API calls at the start of __main__
-- If a user is needed, create one and capture its id as user_id
-- Store all created resource IDs in a cleanup list called created_ids
-- If any setup call fails, print "SETUP FAILED" and exit immediately
+- Create the prerequisite resources via API calls at the top of __main__.
+- For operations that target an existing user (get_one, patch, delete), create at least one user and capture user_id.
+- For test cases that need a second user (e.g. duplicate-detection edge case in POST), create that second user too.
+- Track all created ids as ("user", id) tuples in `created_ids`.
+- If any setup call fails, print "SETUP FAILED" and exit.
 
-PHASE 2 - TEST:
-- Run the {STRATEGY} test cases for the operation: {OPERATION}
-- Use the IDs captured in setup — never hardcode IDs
-- Print PASS or FAIL for each test case with a short description
+PHASE 2 - TEST: enumerate {STRATEGY} cases against {OPERATION}, one PASS/FAIL line per case.
+{STRATEGY} cases:
+- If {OPERATION} is delete:
+   * Edge:  DELETE the prerequisite user_id -> expect 403 (documented behavior)
+   * Edge:  DELETE id 999999999 -> expect 403 or 404
+- If {OPERATION} is patch:
+   * Happy: PATCH firstName to a valid string -> expect 200
+   * Happy: PATCH lastName to a 1-character string -> expect 200
+   * Edge:  PATCH email to an invalid string ("not-an-email") -> expect 422
+   * Edge:  PATCH password to a 9-character string -> expect 422
+   * Edge:  PATCH a non-existent user id 999999999 -> expect 404
+- If {OPERATION} is post:
+   * Happy: POST with all valid fields -> expect 201, append id to created_ids
+   * Edge:  POST with empty login -> expect 422
+   * Edge:  POST with invalid email (no @) -> expect 422
+   * Edge:  POST with password 9 characters -> expect 422
+   * Edge:  POST duplicate login (matching prerequisite user) -> expect 422
+   * Edge:  POST duplicate email (matching prerequisite user) -> expect 422
+- If {OPERATION} is get_one:
+   * Happy: GET prerequisite user_id -> expect 200
+   * Edge:  GET id 999999999 -> expect 404
+- If {OPERATION} is get_all:
+   * Happy: GET /api/v3/users -> expect 200 and the prerequisite user must appear
+- Each case prints exactly: PASS: <description>  or  FAIL: <description> (got <code>)
 
 PHASE 3 - TEARDOWN:
-- Delete every resource created in setup, in reverse order
-- Always run teardown even if tests fail
+- Always run, inside a finally block.
+- DO NOT attempt to DELETE users — the API always returns 403.
+- Print: "TEARDOWN: user cleanup skipped (DELETE /api/v3/users not supported)"
 
-Additional rules:
-1. Use the requests library with Basic auth
-2. Set credentials like this exactly:
-   import os
-   API_KEY = os.environ.get("OP_API_KEY")
+Code rules:
+1. import os, requests, time, random, string
+2. API_KEY = os.environ.get("OP_API_KEY")
    BASE_URL = os.environ.get("OP_BASE_URL", "http://localhost:8080")
    auth = ("apikey", API_KEY)
-3. Generate unique identifiers using both timestamp AND 4 random characters:
-   import time, random, string
-   def unique_id():
-       suffix = ''.join(random.choices(string.ascii_lowercase, k=4))
-       return f"test-{int(time.time())}-{suffix}"
-4. Never hardcode credentials anywhere in the code
-5. Every helper function must return ONLY the response object, never a tuple or boolean
-6. Check response.status_code directly in each test function, never inside a helper
-7. Do not use global variables
-8. DELETE operations return 204 on success, not 200. Always assert status_code == 204 for delete calls.
-9. The email field MUST be named "email" not "mail". Example of correct user creation body:
-   {
-     "login": unique_id(),
-     "email": f"{unique_id()}@example.com",
-     "firstName": "Test",
-     "lastName": "User",
-     "password": "SecurePassword123!"
-   }
-10. IMPORTANT: OpenProject does not allow user deletion via API — DELETE /api/v3/users/{id} always returns 403. Do NOT attempt to delete users in teardown. Leave user cleanup out entirely.
-
-Output only raw Python code with no explanation and no markdown.
+3. unique_id() = f"test-{int(time.time())}-{''.join(random.choices(string.ascii_lowercase, k=4))}"
+4. Never hardcode credentials.
+5. Use field name "email" not "mail".
+6. Helpers return only response objects.
+7. Output only raw Python — no markdown.

@@ -1,24 +1,24 @@
-You are an expert in REST API testing. Your task is to analyze a specific HTTP operation on an API endpoint and list the minimum prerequisites that must exist in the system before that operation can be called successfully.
+You are planning a {STRATEGY} test for the {OPERATION} operation on the OpenProject Work Packages endpoint (/api/v3/work_packages, with creation under /api/v3/projects/{id}/work_packages).
+
+Your job: think about what test cases this strategy would run for this operation, then list the system state that must exist before those cases can run.
+
+Reasoning steps (do internally, do not output):
+1. Enumerate the test cases a {STRATEGY} approach would generate for {OPERATION} on Work Packages. Cover both the happy-path cases (operation succeeds) AND the edge / error cases.
+2. For each case, ask: what state must exist beforehand?
+3. Combine into a deduplicated list of resources to create up front.
+
+Output format:
+- Plain-text list of prerequisite resources.
+- For each prerequisite: resource type, fields needed, identifier(s) to capture (id, href, etc.), and which class of test cases needs it.
+- Note ordering dependencies (e.g. a project must be created before any work package).
+- If multiple instances are needed (e.g. one to delete, one to leave alone), say so.
+- Do NOT describe the test cases. Do NOT include code or markdown.
+
+Important hard rules:
+- A work package always belongs to a project. Even simple POST tests need a parent project.
+- Available types: ids 1-7. Priorities: ids 7-10. Statuses: ids 1-14. Type/status/priority can be used directly without separate creation.
+- Authentication is always available — do not list it as a prerequisite.
 
 Target system: OpenProject (project management REST API)
 Base URL: {BASE_URL}
 Authentication: Basic auth with username "apikey" and password "{API_KEY}"
-Endpoint: Work Packages (/api/v3/work_packages)
-Operation: {OPERATION}
-
-Rules:
-- List only the resources that MUST exist before this operation can succeed.
-- Do not describe how to test the operation itself.
-- Do not include authentication as a prerequisite — assume it is always available.
-- If the operation requires no prerequisites, say "No prerequisites required."
-- For each prerequisite, state: what resource is needed, what fields are required to create it, and what identifier (id, identifier, href) must be captured for use in the test.
-- Be specific to the operation.
-
-Important facts about work_packages in OpenProject:
-- A work package ALWAYS requires a project to exist first. Capture the project id.
-- To create a work package via POST /api/v3/projects/{project_id}/work_packages, the required fields are: subject (string). The project_id comes from the parent project.
-- Work package type and status are assigned automatically by OpenProject — do not list them as prerequisites to create manually.
-- For DELETE, PATCH, GET on a specific work package, a work package must exist with a known id.
-- POST /api/v3/projects/{project_id}/work_packages only requires a project to exist.
-
-Respond in plain text. Do not write any code. Do not include markdown formatting.

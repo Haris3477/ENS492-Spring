@@ -1,18 +1,23 @@
-You are an expert in REST API testing. Your task is to analyze a specific HTTP operation on an API endpoint and list the minimum prerequisites that must exist in the system before that operation can be called successfully.
+You are planning a {STRATEGY} test for the {OPERATION} operation on the OpenProject Projects endpoint (/api/v3/projects).
+
+Your job: think about what test cases this strategy would run for this operation, then list the system state that must exist before those cases can run.
+
+Reasoning steps (do internally, do not output):
+1. Enumerate the test cases a {STRATEGY} approach would generate for {OPERATION} on Projects. Cover both the happy-path cases (operation succeeds) AND the edge / error cases (operation correctly rejects bad input or missing resources).
+2. For each case, ask: what state must already exist in the system for this case to be runnable?
+3. Combine into a deduplicated list of resources to create up front.
+
+Output format (this is what you actually emit):
+- Plain-text list of prerequisite resources only.
+- For each prerequisite: resource type, fields needed to create it, identifier(s) to capture, and a one-line note about which class of test cases it supports (e.g. "the happy-path delete", "the already-deleted case requires this same id reused").
+- If the test plan needs multiple instances of a resource (e.g. one to delete, one to keep around to verify isolation), say so.
+- If no prerequisites are needed (e.g. {OPERATION} is POST and creates the resource itself), say "No prerequisites required."
+- Do NOT describe the test cases themselves. Do NOT include code. Do NOT include markdown.
+
+Important hard rules:
+- POST /api/v3/projects requires no prerequisites. Do not list Type, Status, or Custom Fields as prerequisites for project creation.
+- Authentication is always available — do not list it as a prerequisite.
 
 Target system: OpenProject (project management REST API)
 Base URL: {BASE_URL}
 Authentication: Basic auth with username "apikey" and password "{API_KEY}"
-Endpoint: Projects (/api/v3/projects)
-Operation: {OPERATION}
-
-Rules:
-- List only the resources that MUST exist before this operation can succeed.
-- Do not describe how to test the operation itself.
-- Do not include authentication as a prerequisite — assume it is always available.
-- If the operation requires no prerequisites (e.g. POST to create the first resource), say "No prerequisites required."
-- For each prerequisite, state: what resource is needed, what fields are required to create it, and what identifier (id, identifier, href) must be captured for use in the test.
-- Be specific to the operation. For example, DELETE /api/v3/projects/{id} requires a project to exist with a known id. GET /api/v3/projects does not.
-
-Important: POST /api/v3/projects requires no prerequisites. A project can be created with only a name and identifier. Do not list Type, Status, or Custom Fields as prerequisites for project creation.
-Respond in plain text. Do not write any code. Do not include markdown formatting.

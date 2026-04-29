@@ -1,66 +1,79 @@
 You are a software tester performing {STRATEGY} on the OpenProject REST API.
 
 Target endpoint: Time Entries
-Operation: {OPERATION}
+Operation under test: {OPERATION}
 Base URL: {BASE_URL}
 Authentication: Basic auth with username "apikey" and password "{API_KEY}"
 
-The following prerequisites must exist before the test runs:
+Prerequisites discovered (already analyzed for this test plan):
 {PREREQUISITES}
 
-The Time Entries API works as follows:
-- GET    /api/v3/time_entries        -> list all time entries
+The Time Entries API:
+- GET    /api/v3/time_entries        -> list time entries
 - POST   /api/v3/time_entries        -> create a time entry
-- GET    /api/v3/time_entries/{id}   -> get a specific time entry
+- GET    /api/v3/time_entries/{id}   -> get a time entry
 - PATCH  /api/v3/time_entries/{id}   -> update a time entry
 - DELETE /api/v3/time_entries/{id}   -> delete a time entry
 
-When creating a time entry, the request body must use HAL+JSON _links format:
+POST/PATCH body uses HAL+JSON _links:
 {
   "hours": "PT1H",
   "spentOn": "2024-01-15",
   "_links": {
-    "project": { "href": "/api/v3/projects/{project_id}" },
-    "workPackage": { "href": "/api/v3/work_packages/{work_package_id}" },
+    "project":     { "href": "/api/v3/projects/{project_id}" },
+    "workPackage": { "href": "/api/v3/work_packages/{work_package_id}" }
   }
 }
 
-Write a complete Python test script that follows this exact three-phase structure:
+Write a Python test script with this exact three-phase structure:
 
 PHASE 1 - SETUP:
-- Create all prerequisite resources at the start of __main__ in this order:
-  1. Create a project via POST /api/v3/projects (fields: name, identifier). Capture its id.
-  2. Create a work package via POST /api/v3/projects/{project_id}/work_packages (field: subject). Capture its id.
-  3. If a time entry is needed for the operation, create one and capture its id.
-- Store created resource IDs in a cleanup list called created_ids as tuples: (resource_type, id)
-- If any setup call fails, print "SETUP FAILED" and exit immediately
+- Create the prerequisites in order:
+  1. POST a project (name + identifier). Capture project_id.
+  2. POST a work package under that project (subject). Capture work_package_id.
+  3. If {OPERATION} targets an existing time entry (get_one, patch, delete), POST a time entry and capture time_entry_id.
+- Track each created id as ("project", id) / ("work_package", id) / ("time_entry", id) in `created_ids`.
+- If any setup call fails, print "SETUP FAILED" and exit.
 
-PHASE 2 - TEST:
-- Run the {STRATEGY} test cases for the operation: {OPERATION}
-- Use the IDs captured in setup — never hardcode IDs
-- Print PASS or FAIL for each test case with a short description
+PHASE 2 - TEST: enumerate {STRATEGY} cases against {OPERATION}, one PASS/FAIL line per case.
+{STRATEGY} cases:
+- If {OPERATION} is delete:
+   * Happy: DELETE the prerequisite time_entry_id -> expect 204
+   * Edge:  DELETE the same id again -> expect 404
+   * Edge:  DELETE id 999999999 -> expect 404
+- If {OPERATION} is patch:
+   * Happy: PATCH hours to "PT2H" -> expect 200
+   * Happy: PATCH spentOn to a different valid date -> expect 200
+   * Edge:  PATCH hours to "" -> expect 422
+   * Edge:  PATCH hours to "invalid string" -> expect 422
+   * Edge:  PATCH a non-existent time entry id 999999999 -> expect 404
+- If {OPERATION} is post:
+   * Happy: POST with valid hours, spentOn, project _link, workPackage _link -> expect 201, append id to created_ids
+   * Edge:  POST with empty hours -> expect 422
+   * Edge:  POST with hours "PT0S" (zero duration) -> expect 422
+   * Edge:  POST with hours "PT-1H" (negative) -> expect 422
+   * Edge:  POST with invalid spentOn ("not-a-date") -> expect 422
+   * Edge:  POST without workPackage _link -> expect 422
+   * Edge:  POST with workPackage href pointing to non-existent id (999999999) -> expect 422
+- If {OPERATION} is get_one:
+   * Happy: GET prerequisite time_entry_id -> expect 200
+   * Edge:  GET id 999999999 -> expect 404
+- If {OPERATION} is get_all:
+   * Happy: GET /api/v3/time_entries -> expect 200 and the prerequisite time entry must appear
+- Each case prints exactly: PASS: <description>  or  FAIL: <description> (got <code>)
 
 PHASE 3 - TEARDOWN:
-- Delete resources in reverse order: time entries first, then work packages, then projects
-- Always run teardown even if tests fail
+- Always run, inside a finally block.
+- Delete in reverse: time entries first, then work packages, then projects.
+- 404 during teardown (already deleted) is acceptable; print "TEARDOWN: <type> {id} already gone".
 
-Additional rules:
-1. Use the requests library with Basic auth
-2. Set credentials like this exactly:
-   import os
-   API_KEY = os.environ.get("OP_API_KEY")
+Code rules:
+1. import os, requests, time, random, string
+2. API_KEY = os.environ.get("OP_API_KEY")
    BASE_URL = os.environ.get("OP_BASE_URL", "http://localhost:8080")
    auth = ("apikey", API_KEY)
-3. Generate unique identifiers using both timestamp AND 4 random characters:
-   import time, random, string
-   def unique_id():
-       suffix = ''.join(random.choices(string.ascii_lowercase, k=4))
-       return f"test-{int(time.time())}-{suffix}"
-4. Never hardcode credentials anywhere in the code
-5. Every helper function must return ONLY the response object, never a tuple or boolean
-6. Check response.status_code directly in each test function, never inside a helper
-7. Do not use global variables
-8. DELETE operations return 204 on success, not 200. Always assert status_code == 204 for delete calls.
-9. Always use _links with href values for project and workPackage — never pass them as plain fields.
-
-Output only raw Python code with no explanation and no markdown.
+3. unique_id() = f"test-{int(time.time())}-{''.join(random.choices(string.ascii_lowercase, k=4))}"
+4. Never hardcode credentials.
+5. DELETE returns 204 not 200.
+6. Always use _links with href; never pass project/workPackage as plain fields.
+7. Output only raw Python — no markdown.

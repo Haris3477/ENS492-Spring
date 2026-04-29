@@ -1,11 +1,11 @@
-You are a software tester performing {STRATEGY} on the OpenProject REST API.
+You are a software tester performing {STRATEGY} testing on the OpenProject REST API.
 
 Target endpoint: Projects (/api/v3/projects)
-Operation: {OPERATION}
+Operation under test: {OPERATION}
 Base URL: {BASE_URL}
 Authentication: Basic auth with username "apikey" and password "{API_KEY}"
 
-The following prerequisites must exist before the test runs:
+Prerequisites discovered (already analyzed for this test plan):
 {PREREQUISITES}
 
 The Projects API works as follows:
@@ -15,45 +15,59 @@ The Projects API works as follows:
 - PATCH  /api/v3/projects/{id}      -> update a project
 - DELETE /api/v3/projects/{id}      -> delete a project
 
-When creating or updating a project, the request body must be JSON with these fields:
+Project body schema for POST/PATCH:
 - "name": string (required, must not be empty, maximum 255 characters)
 - "identifier": string (required, must be unique, lowercase letters/numbers/hyphens only, maximum 100 characters)
 - "public": boolean (optional)
 - "description": object with "raw" string field (optional)
 
-Write a complete Python test script that follows this exact three-phase structure:
+Write a Python test script with this exact three-phase structure:
 
 PHASE 1 - SETUP:
-- Create all prerequisite resources listed above via API POST calls at the start of __main__
-- Store their IDs in a cleanup list called `created_ids`
-- If any setup call fails, print "SETUP FAILED" and exit immediately — do not proceed to testing
+- Create the prerequisite resources listed above via API calls at the start of __main__.
+- Store every created id in a list called `created_ids` along with its resource type, e.g. ("project", 42).
+- If any setup call returns a non-success status, print "SETUP FAILED" and exit immediately.
 
-PHASE 2 - TEST:
-- Run the {STRATEGY} test cases for the operation: {OPERATION}
-- Use the IDs captured in setup — never hardcode IDs
-- Print PASS or FAIL for each test case with a short description
+PHASE 2 - TEST: enumerate {STRATEGY} cases against {OPERATION} and emit one PASS/FAIL line per case.
+{STRATEGY} cases to run for {OPERATION}:
+- If {OPERATION} is delete:
+   * Happy: DELETE the prerequisite project id -> expect 204
+   * Edge:  DELETE the same id again (now non-existent) -> expect 404
+   * Edge:  DELETE id 999999999 (never existed) -> expect 404
+   * Edge:  DELETE id "abc" (invalid format) -> expect 404 or 400
+- If {OPERATION} is patch:
+   * Happy: PATCH name to a 1-character string -> expect 200
+   * Happy: PATCH name to a 255-character string -> expect 200
+   * Edge:  PATCH name to empty string -> expect 422
+   * Edge:  PATCH name to a 256-character string -> expect 422
+   * Edge:  PATCH identifier to one with spaces -> expect 422
+   * Edge:  PATCH a non-existent project id -> expect 404
+- If {OPERATION} is post:
+   * Happy: POST with valid name and identifier -> expect 201
+   * Edge:  POST with empty name -> expect 422
+   * Edge:  POST with name 256 chars -> expect 422
+   * Edge:  POST with empty identifier -> note OpenProject silently accepts (returns 201) — assert this real behavior
+   * Edge:  POST with identifier containing spaces -> expect 422
+- If {OPERATION} is get_one:
+   * Happy: GET the prerequisite project id -> expect 200
+   * Edge:  GET id 999999999 -> expect 404
+- If {OPERATION} is get_all:
+   * Happy: GET /api/v3/projects -> expect 200 and the prerequisite project must appear in the response collection
+- For each case print exactly: PASS: <description>  or  FAIL: <description> (got <code>)
 
 PHASE 3 - TEARDOWN:
-- Delete every resource created in setup, in reverse order
-- Always run teardown even if tests fail
+- Always run, inside a finally block.
+- Delete every resource captured in `created_ids` in REVERSE order of creation.
+- For DELETE-failure responses (404 because the test already deleted it), print a non-PASS, non-FAIL note like "TEARDOWN: project {id} already gone".
 
-Additional rules:
-1. Use the requests library with Basic auth
-2. Set credentials like this exactly:
-   import os
-   API_KEY = os.environ.get("OP_API_KEY")
+Code rules:
+1. import os, requests, time, random, string
+2. API_KEY = os.environ.get("OP_API_KEY")
    BASE_URL = os.environ.get("OP_BASE_URL", "http://localhost:8080")
    auth = ("apikey", API_KEY)
-3. Generate unique identifiers using both timestamp AND 4 random characters:
-   import time, random, string
-   def unique_id():
-       suffix = ''.join(random.choices(string.ascii_lowercase, k=4))
-       return f"test-{int(time.time())}-{suffix}"
-4. Never hardcode credentials anywhere in the code
-5. Every helper function must return ONLY the response object, never a tuple or boolean
-6. Check response.status_code directly in each test function, never inside a helper
-7. Do not use global variables
-8. DELETE operations return 204 on success, not 200. Always assert status_code == 204 for delete calls.
-
-
-Output only raw Python code with no explanation and no markdown.
+3. Generate unique identifiers as f"test-{int(time.time())}-{''.join(random.choices(string.ascii_lowercase, k=4))}"
+4. Never hardcode credentials.
+5. DELETE returns 204 not 200.
+6. Helper functions return only response objects.
+7. Do not use module-level globals other than API_KEY/BASE_URL/auth.
+8. Output only raw Python — no markdown, no explanation.

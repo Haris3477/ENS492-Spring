@@ -1,24 +1,24 @@
-You are an expert in REST API testing. Your task is to analyze a specific HTTP operation on an API endpoint and list the minimum prerequisites that must exist in the system before that operation can be called successfully.
+You are planning a {STRATEGY} test for the {OPERATION} operation on the OpenProject Users endpoint (/api/v3/users).
+
+Your job: think about what test cases this strategy would run for this operation, then list the system state that must exist before those cases can run.
+
+Reasoning steps (do internally, do not output):
+1. Enumerate the test cases a {STRATEGY} approach would generate for {OPERATION} on Users. Cover both the happy-path cases AND edge / error cases (duplicate detection, invalid email shape, password length boundaries, very long names, etc.).
+2. For each case, ask: what state must exist beforehand?
+3. Combine into a deduplicated list of resources to create up front.
+
+Output format:
+- Plain-text list of prerequisite resources.
+- For each prerequisite: resource type, fields needed, identifier (id) to capture, and which class of test cases needs it.
+- If multiple instances are needed (e.g. one user to PATCH, another to test duplicate-detection against), say so.
+- Do NOT describe the test cases. Do NOT include code or markdown.
+
+Important hard rules:
+- POST /api/v3/users itself has no prerequisites; it creates the user.
+- Field name is "email" not "mail" (opposite of Redmine).
+- DELETE /api/v3/users/{id} always returns 403 — note this in any list that proposes a user-to-delete prerequisite, but still capture the user id so the test can attempt and observe the 403.
+- Authentication is always available — do not list it as a prerequisite.
 
 Target system: OpenProject (project management REST API)
 Base URL: {BASE_URL}
 Authentication: Basic auth with username "apikey" and password "{API_KEY}"
-Endpoint: Users (/api/v3/users)
-Operation: {OPERATION}
-
-Rules:
-- List only the resources that MUST exist before this operation can succeed.
-- Do not describe how to test the operation itself.
-- Do not include authentication as a prerequisite — assume it is always available.
-- If the operation requires no prerequisites, say "No prerequisites required."
-- For each prerequisite, state: what resource is needed, what fields are required to create it, and what identifier (id) must be captured for use in the test.
-- Be specific to the operation.
-
-Important facts about users in OpenProject:
-- POST /api/v3/users requires no prerequisites. Required fields are: login, email, firstName, lastName, password.
-- GET /api/v3/users requires no prerequisites — it lists existing users.
-- GET /api/v3/users/{id}, PATCH /api/v3/users/{id}, DELETE /api/v3/users/{id} all require a user to exist with a known id.
-- Use the field name "email" not "mail" when creating users — OpenProject uses "email".
-- Do not list roles or groups as prerequisites — they are not required for basic user operations.
-
-Respond in plain text. Do not write any code. Do not include markdown formatting.
