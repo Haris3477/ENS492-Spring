@@ -65,6 +65,9 @@ def generate_test(strategy, endpoint):
     prompt = replace_placeholders(prompt, strategy=strategy)
 
     print(f"Generating test for strategy={strategy}, endpoint={endpoint}...")
+    print("=== BEGIN RENDERED PROMPT ===")
+    print(prompt)
+    print("=== END RENDERED PROMPT ===")
 
     response = client.chat.completions.create(
         model="gpt-4o-mini",
@@ -83,12 +86,45 @@ def generate_test(strategy, endpoint):
     return response.choices[0].message.content
 
 
+def choose_operation(strategy, endpoint):
+    """Prereq mode step 0: ask the LLM which HTTP operation gives the best test signal
+    for this strategy/endpoint pair, given documented OpenProject behavior."""
+    user_prompt = (
+        f"You are planning a {strategy.upper()} test against the OpenProject {endpoint} endpoint.\n"
+        f"Pick exactly one HTTP operation from this set: {VALID_OPERATIONS}.\n"
+        "Choose the operation that maximizes useful test signal under {strategy.upper()}, considering:\n"
+        "- Which operation has the richest validation surface and exercises the most code paths.\n"
+        "- Whether the operation is hard-blocked by OpenProject (e.g. DELETE on users always returns 403, "
+        "so DELETE is a poor choice for users — pick PATCH instead).\n"
+        "- Whether prerequisite setup is meaningful (an operation that requires existing state is generally a better target than one that doesn't).\n"
+        "Output exactly one operation name from the set, lowercase, with no quotes, no explanation, no other text."
+    )
+
+    print(f"Choosing operation for strategy={strategy}, endpoint={endpoint}...")
+
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "system", "content": "You are an expert API tester. Output exactly one word from the allowed set."},
+            {"role": "user", "content": user_prompt},
+        ],
+    )
+    op = response.choices[0].message.content.strip().lower().rstrip(".")
+    if op not in VALID_OPERATIONS:
+        raise ValueError(f"LLM returned invalid operation: {op!r}; expected one of {VALID_OPERATIONS}")
+    print(f"Operation chosen: {op}")
+    return op
+
+
 def discover_prerequisites(endpoint, operation):
     """Prereq mode step 1: ask the LLM what must exist before this operation can run."""
     prompt = load_prereq_prompt("discovery", endpoint)
     prompt = replace_placeholders(prompt, operation=operation)
 
     print(f"Discovering prerequisites for endpoint={endpoint}, operation={operation}...")
+    print("=== BEGIN DISCOVERY PROMPT ===")
+    print(prompt)
+    print("=== END DISCOVERY PROMPT ===")
 
     response = client.chat.completions.create(
         model="gpt-4o-mini",
@@ -115,6 +151,9 @@ def generate_test_with_prerequisites(strategy, endpoint, operation, prerequisite
     prompt = replace_placeholders(prompt, strategy=strategy, operation=operation, prerequisites=prerequisites)
 
     print(f"Generating prereq-mode test for strategy={strategy}, endpoint={endpoint}, operation={operation}...")
+    print("=== BEGIN GENERATION PROMPT ===")
+    print(prompt)
+    print("=== END GENERATION PROMPT ===")
 
     response = client.chat.completions.create(
         model="gpt-4o-mini",
@@ -137,7 +176,10 @@ def save_and_run_test(test_code):
     test_path = os.path.join(os.path.dirname(__file__), "generated_test.py")
     with open(test_path, "w") as f:
         f.write(test_code)
-    print("Running generated test...")
+    print("=== BEGIN GENERATED TEST ===")
+    print(test_code)
+    print("=== END GENERATED TEST ===")
+    print("=== BEGIN TEST OUTPUT ===")
     result = subprocess.run(
         [sys.executable, test_path],
         capture_output=True,
@@ -146,6 +188,7 @@ def save_and_run_test(test_code):
     print(result.stdout)
     if result.stderr:
         print("STDERR:", result.stderr)
+    print("=== END TEST OUTPUT ===")
     return result.returncode
 
 
@@ -158,22 +201,18 @@ if __name__ == "__main__":
     parser.add_argument("--strategy", required=True, choices=VALID_STRATEGIES)
     parser.add_argument("--endpoint", required=True, choices=VALID_ENDPOINTS)
     parser.add_argument("--operation", choices=VALID_OPERATIONS,
-                        help="Required for --mode prereq (e.g. delete, patch, get_one)")
+                        help="Optional for --mode prereq. If omitted, the LLM picks the operation.")
     parser.add_argument("--flush", action="store_true",
                         help="Flush coverage after running tests")
 
     args = parser.parse_args()
 
-    if args.mode == "prereq" and not args.operation:
-        print("Error: --operation is required when using --mode prereq")
-        print(f"  Valid operations: {VALID_OPERATIONS}")
-        sys.exit(1)
-
     if args.mode == "standard":
         test_code = generate_test(args.strategy, args.endpoint)
     else:
-        prerequisites = discover_prerequisites(args.endpoint, args.operation)
-        test_code = generate_test_with_prerequisites(args.strategy, args.endpoint, args.operation, prerequisites)
+        operation = args.operation or choose_operation(args.strategy, args.endpoint)
+        prerequisites = discover_prerequisites(args.endpoint, operation)
+        test_code = generate_test_with_prerequisites(args.strategy, args.endpoint, operation, prerequisites)
 
     exit_code = save_and_run_test(test_code)
     sys.exit(exit_code)

@@ -24,6 +24,37 @@ STRATEGY_INSTRUCTIONS = {
     "decision_table": "Apply Decision Table Testing - identify combinations of inputs and business rules. For example, test combinations of Admin vs Regular user creating Public vs Private resources. Generate a test for each logical rule combination in your decision table. Do NOT test boolean fields with invalid types as Redmine coerces them silently."
 }
 
+INSTRUMENTATION_BLOCK = """
+
+Coverage instrumentation (REQUIRED for every assertion — independent line counting):
+For each test case, measure how many Ruby lines that case exercises *independently*:
+1. Reset coverage state immediately before the assertion's HTTP call:
+   requests.get(f"{base_url}/__cov_reset__")
+2. Read the count after the reset (should be ~0):
+   cov_before = int(requests.get(f"{base_url}/__cov_count__").text)
+3. Make the request and check the status as you would normally.
+4. Read the count after the response:
+   cov_after = int(requests.get(f"{base_url}/__cov_count__").text)
+5. Compute delta = cov_after - cov_before
+6. Append "[lines={delta}]" to the PASS or FAIL message.
+
+Every PASS/FAIL output line MUST start with literally "PASS:" or "FAIL:" (no checkmarks, no leading whitespace) and MUST end with "[lines=N]". Do not use ✓, ✗, [PASS], or any decorations.
+
+Example:
+    requests.get(f"{base_url}/__cov_reset__")
+    cov_before = int(requests.get(f"{base_url}/__cov_count__").text)
+    response = requests.post(f"{base_url}/projects.json", json={"project": {"name": "", "identifier": "x"}}, auth=auth)
+    cov_after = int(requests.get(f"{base_url}/__cov_count__").text)
+    delta = cov_after - cov_before
+    if response.status_code == 422:
+        print(f"PASS: Empty name [lines={delta}]")
+    else:
+        print(f"FAIL: Empty name (got {response.status_code}) [lines={delta}]")
+
+The /__cov_reset__ and /__cov_count__ endpoints are local-only and do not require authentication.
+Reset and measure ONLY around the single assertion under test, not around setup/teardown helper requests.
+"""
+
 REDMINE_FACTS = """
 CRITICAL REDMINE BEHAVIOR — memorize these facts exactly:
 - Base URL: {redmine_url}
@@ -207,7 +238,7 @@ CRITICAL INSTRUCTIONS:
 - activity_id is OPTIONAL on time entries — if omitted, Redmine uses the default activity. Do NOT test missing activity_id expecting 422. However, an invalid activity_id (non-existent ID) DOES return 422.
 - For users, a valid creation test MUST include all 4 required fields: login, password, firstname, lastname, AND email. Missing any of these causes 422.
 - CRITICAL: In Redmine, the email field for users is called "mail" not "email". Always use "mail" in the user payload. Using "email" will cause "Email cannot be blank" error even when a value is provided.
-11. Print '✓ Test Passed' on success, raise an exception on failure.
+11. Print exactly "PASS: <description> [lines=N]" or "FAIL: <description> (got <code>) [lines=N]" for every test case. Do NOT raise exceptions on failure — print FAIL and continue. Do NOT use ✓, ✗, [PASS], or decorations.
 12. Return ONLY raw Python code. No markdown formatting, no backticks.
 13. CRITICAL: You MUST call every test function at the bottom of the script inside an if __name__ == "__main__" block. Example:
 if __name__ == "__main__":
@@ -215,7 +246,15 @@ if __name__ == "__main__":
     test_two()
     test_three()
 Without this block the script produces no output. This is mandatory.
+
+{INSTRUMENTATION_BLOCK}
 """
+
+    full_prompt = full_prompt.replace("{base_url}", config["redmine_url"])
+
+    print("=== BEGIN RENDERED PROMPT ===")
+    print(full_prompt)
+    print("=== END RENDERED PROMPT ===")
 
     try:
         response = client.chat.completions.create(
@@ -236,11 +275,43 @@ Without this block the script produces no output. This is mandatory.
 
         with open(GENERATED_TEST_FILE, "w") as f:
             f.write(code.strip())
-        print(f"✓ Generated {GENERATED_TEST_FILE}")
+        print("=== BEGIN GENERATED TEST ===")
+        print(code.strip())
+        print("=== END GENERATED TEST ===")
 
     except Exception as e:
         print(f"Error calling OpenAI: {e}")
         sys.exit(1)
+
+
+def choose_operation(strategy, endpoint, config):
+    """Prereq mode step 0: ask the LLM which HTTP operation gives the best test signal."""
+    client = OpenAI(api_key=config["api_key"])
+    user_prompt = (
+        f"You are planning a {strategy.upper()} test against the Redmine {endpoint} endpoint.\n"
+        f"Pick exactly one HTTP operation from this set: {VALID_OPERATIONS}.\n"
+        "Choose the operation that maximizes useful test signal under "
+        f"{strategy.upper()}, considering:\n"
+        "- Which operation has the richest validation surface and exercises the most code paths.\n"
+        "- Whether the operation is hard-blocked by Redmine (e.g. invalid tracker_id is silently ignored, so post on issues might be a poor target — pick patch or delete instead).\n"
+        "- Whether prerequisite setup is meaningful (an operation that requires existing state is generally a better target).\n"
+        "Output exactly one operation name from the set, lowercase, with no quotes, no explanation, no other text."
+    )
+    print(f"Choosing operation for strategy={strategy}, endpoint={endpoint}...")
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "system", "content": "You are an expert API tester. Output exactly one word from the allowed set."},
+            {"role": "user", "content": user_prompt},
+        ],
+        temperature=0.0,
+    )
+    op = response.choices[0].message.content.strip().lower().rstrip(".")
+    if op not in VALID_OPERATIONS:
+        raise ValueError(f"LLM returned invalid operation: {op!r}; expected one of {VALID_OPERATIONS}")
+    print(f"Operation chosen: {op}")
+    return op
+
 
 def generate_prereq_test(endpoint, operation, strategy, config):
     """Prereq mode: two LLM calls — discover prerequisites, then generate 3-phase test."""
@@ -249,6 +320,9 @@ def generate_prereq_test(endpoint, operation, strategy, config):
     # Step 1 — Discovery
     print(f"\n[PREREQ] Step 1 — Discovering prerequisites for '{operation}' on '{endpoint}'...")
     discovery_prompt = get_prereq_discovery_prompt(endpoint, operation, config)
+    print("=== BEGIN DISCOVERY PROMPT ===")
+    print(discovery_prompt)
+    print("=== END DISCOVERY PROMPT ===")
     try:
         discovery_response = client.chat.completions.create(
             model="gpt-4o-mini",
@@ -267,6 +341,10 @@ def generate_prereq_test(endpoint, operation, strategy, config):
     # Step 2 — Generation
     print(f"[PREREQ] Step 2 — Generating 3-phase test script...")
     generation_prompt = get_prereq_generation_prompt(endpoint, operation, strategy, prerequisites, config)
+    generation_prompt += "\n\n" + INSTRUMENTATION_BLOCK.replace("{base_url}", config["redmine_url"])
+    print("=== BEGIN GENERATION PROMPT ===")
+    print(generation_prompt)
+    print("=== END GENERATION PROMPT ===")
     try:
         generation_response = client.chat.completions.create(
             model="gpt-4o-mini",
@@ -286,7 +364,9 @@ def generate_prereq_test(endpoint, operation, strategy, config):
 
         with open(GENERATED_TEST_FILE, "w") as f:
             f.write(code.strip())
-        print(f"✓ Generated {GENERATED_TEST_FILE}")
+        print("=== BEGIN GENERATED TEST ===")
+        print(code.strip())
+        print("=== END GENERATED TEST ===")
 
     except Exception as e:
         print(f"Error in generation call: {e}")
@@ -323,16 +403,18 @@ def main():
 
     # PREREQ MODE
     if args.mode == "prereq":
-        if not args.endpoint or not args.operation:
-            print("Error: --endpoint and --operation are required in prereq mode.")
+        if not args.endpoint:
+            print("Error: --endpoint is required in prereq mode.")
             print(f"  --endpoint: {VALID_ENDPOINTS}")
-            print(f"  --operation: {VALID_OPERATIONS}")
             sys.exit(1)
         if not args.strategy:
             print("Error: --strategy is required in prereq mode.")
             sys.exit(1)
-        generate_prereq_test(args.endpoint, args.operation, args.strategy, config)
+        operation = args.operation or choose_operation(args.strategy, args.endpoint, config)
+        generate_prereq_test(args.endpoint, operation, args.strategy, config)
+        print("=== BEGIN TEST OUTPUT ===")
         run_step(f"Running Prereq Test ({GENERATED_TEST_FILE})", ["python3", GENERATED_TEST_FILE])
+        print("=== END TEST OUTPUT ===")
         print("\n[INFO] Prereq test complete.")
         return
 
@@ -351,7 +433,9 @@ def main():
             print("[ERROR] No prompt provided and no generated test found.")
             sys.exit(1)
 
+    print("=== BEGIN TEST OUTPUT ===")
     run_step(f"Running Test ({test_script})", ["python3", test_script])
+    print("=== END TEST OUTPUT ===")
     print("\n[INFO] Test complete. Coverage NOT flushed yet.")
     print("[INFO] Run more tests, then run: python3 run_test.py --flush")
 

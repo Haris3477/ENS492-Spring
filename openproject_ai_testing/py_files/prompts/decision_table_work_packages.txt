@@ -162,3 +162,32 @@ Important code quality rules:
             print(f"FAIL: Empty subject (got {response.status_code})")
 
 Output only raw Python code with no explanation and no markdown.
+
+
+Coverage instrumentation (REQUIRED for every assertion — independent line counting):
+For each test case you generate, measure how many Ruby lines that case exercises *independently* (so two cases hitting the same code path each get full credit):
+1. Reset coverage state immediately before the assertion's HTTP call:
+   requests.get(f"{BASE_URL}/__cov_reset__")
+2. Read the count after the reset (should be ~0):
+   cov_before = int(requests.get(f"{BASE_URL}/__cov_count__").text)
+3. Make the request and check the status as you would normally.
+4. Read the count after the response:
+   cov_after = int(requests.get(f"{BASE_URL}/__cov_count__").text)
+5. Compute delta = cov_after - cov_before
+6. Append "[lines={delta}]" to the PASS or FAIL message.
+
+Example pattern:
+    requests.get(f"{BASE_URL}/__cov_reset__")
+    cov_before = int(requests.get(f"{BASE_URL}/__cov_count__").text)
+    response = create_project("", unique_id())
+    cov_after = int(requests.get(f"{BASE_URL}/__cov_count__").text)
+    delta = cov_after - cov_before
+    if response.status_code == 422:
+        print(f"PASS: Empty name [lines={delta}]")
+    else:
+        print(f"FAIL: Empty name (got {response.status_code}) [lines={delta}]")
+
+Rules:
+- Every PASS or FAIL line MUST end with the [lines=N] marker.
+- The /__cov_reset__ and /__cov_count__ endpoints are local-only — do not authenticate them.
+- Reset and measure ONLY around the single assertion under test, not around setup/teardown or other helper requests.

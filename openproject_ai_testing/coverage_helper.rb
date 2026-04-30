@@ -40,22 +40,56 @@ if defined?(SimpleCov)
       @@mutex.synchronize do
         return if @@worker_initialized
         require 'coverage'
-        unless Coverage.running?
-          Coverage.start(lines: true)
-          $stdout.write("[SimpleCovFlusher] Coverage.start re-armed in pid=#{Process.pid}\n") rescue nil
+        was_running = Coverage.running?
+        $stdout.write("[SimpleCovFlusher] init pid=#{Process.pid} was_running=#{was_running}\n") rescue nil
+        unless was_running
+          begin
+            Coverage.start(lines: true)
+          rescue RuntimeError => e
+            $stdout.write("[SimpleCovFlusher] Coverage.start raised: #{e.message}\n") rescue nil
+            Coverage.resume if Coverage.respond_to?(:resume)
+          end
         end
+        $stdout.write("[SimpleCovFlusher] init pid=#{Process.pid} now_running=#{Coverage.running?}\n") rescue nil
         @@worker_initialized = true
       end
     end
 
     def call(env)
       ensure_worker_coverage_started
-      if env['PATH_INFO'] == '/__cov_reset__'
+      case env['PATH_INFO']
+      when '/__cov_reset__'
         return reset_coverage
+      when '/__cov_count__'
+        return cov_count
       end
       status, headers, body = @app.call(env)
-      maybe_flush
+      # Skip periodic SimpleCov flush — it interferes with Coverage tracking
+      # (calling SimpleCov.result.format! has been observed to flip Coverage.running? to false).
+      # We don't need on-disk resultset for the line-weighted pass-rate metric.
       [status, headers, body]
+    end
+
+    def cov_count
+      begin
+        require 'coverage'
+        running = Coverage.running?
+        unless running
+          return [200, { 'Content-Type' => 'text/plain' }, ["0 not_running pid=#{Process.pid}\n"]]
+        end
+        result = Coverage.peek_result
+        count = 0
+        files_seen = 0
+        result.each do |_file, file_data|
+          files_seen += 1
+          lines = file_data.is_a?(Hash) ? file_data[:lines] : file_data
+          next unless lines
+          lines.each { |ln| count += 1 if ln.is_a?(Integer) && ln > 0 }
+        end
+        [200, { 'Content-Type' => 'text/plain' }, ["#{count}\n"]]
+      rescue => e
+        [500, { 'Content-Type' => 'text/plain' }, ["count failed: #{e.class}: #{e.message}\n"]]
+      end
     end
 
     def reset_coverage
@@ -85,7 +119,8 @@ if defined?(SimpleCov)
       @@mutex.synchronize do
         return if now - @@last_flush < 2
         begin
-          SimpleCov.clear_result if SimpleCov.respond_to?(:clear_result)
+          # NOTE: do NOT call SimpleCov.clear_result — it stops Coverage tracking.
+          # Just nil out the cached @result so SimpleCov.result rebuilds from a fresh peek_result.
           SimpleCov.instance_variable_set(:@result, nil)
           SimpleCov.result.format!
           @@last_flush = now

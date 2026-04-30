@@ -85,38 +85,15 @@ python3 /tmp/poc_5_5/sweep_prereq_all_ops.py
 
 ## Coverage / state management
 
-### Read pass-rate coverage
+Coverage = `PASS / (PASS + FAIL)`, computed per group from each run's stdout. The sweep scripts print the table at the end.
 
-`PASS / (PASS + FAIL)` is computed from each run's stdout — no separate command, the sweep scripts print the table at the end.
-
-### Read SimpleCov line coverage
-
-```bash
-python3 get_coverage.py
-```
-
-Reports the union across all `openproject-api-tests-*` worker keys in `coverage/.resultset.json`.
-
-### Reset coverage between runs
+### Reset state between runs
 
 The sweep scripts hit this automatically. Manual reset:
 
 ```bash
 curl -s http://localhost:8080/__cov_reset__
 ```
-
-This clears Ruby's in-memory `Coverage` counters and deletes `.resultset.json` without restarting the container. Implemented in [coverage_helper.rb](coverage_helper.rb).
-
-### Hard reset (full wipe + container restart)
-
-```bash
-cd /Users/bugrametli/Desktop/sabancı/ens\ 492/ENS492-Spring/openproject_ai_testing
-docker-compose stop openproject
-rm -f coverage/.resultset.json coverage/.last_run.json coverage/.resultset.json.lock
-docker-compose start openproject
-```
-
-Wait until `curl -s http://localhost:8080/api/v3/users/me -u apikey:$OP_API_KEY` returns 200.
 
 ---
 
