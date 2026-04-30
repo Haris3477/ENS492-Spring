@@ -1,0 +1,70 @@
+/* Redmine - project management software
+ * Copyright (C) 2006-  Jean-Philippe Lang
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ *  of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA. */
+
+@import url(/application.css);
+
+body{ color:#303030; background:#e8eaec; }
+
+#top-menu { font-size: 0.75rem; block-size: 1.4rem; padding-block: 0.5rem 0; background-color: #578bb8; }
+#top-menu a { font-weight: bold; }
+#header { background: #467aa7;  }
+#header h1 { margin-inline-start: 6px; }
+#quick-search { margin-inline-end: 6px; }
+#main-menu { padding-block: 0; margin: 0; background-color: #578bb8; inset-inline-start: 0; border-block-start: 1px solid #fff; inline-size: auto; }
+#main-menu ul {min-block-size: fit-content;}
+#main-menu li { margin: 0; padding: 0;}
+#main-menu li a { color: #fff; background-color: #578bb8; border-inline-end: 1px solid #fff; font-size: 90%; padding-block: 4px; padding-inline: 8px; font-weight: bold; }
+#main-menu li a:hover { background-color: #80b0da; color: #ffffff; }
+#main-menu li a.selected, #main-menu li a.selected:hover { background-color: #80b0da; color: #ffffff; box-shadow: none;}
+#main-menu li a.new-object { color: #fff;background-color:#80b0da; }
+#sidebar a.selected,
+#sidebar a.selected:hover { background-color: #80b0da; color: #fff; box-shadow: none; border-radius: 3px; }
+#sidebar a.selected svg.icon-svg { stroke: #fff !important; }
+
+#main-menu .menu-children {
+  border-inline-end: 1px solid #80b0da;
+  border-block-end: 1px solid #80b0da;
+  border-inline-start: 1px solid #80b0da;
+}
+#main-menu .menu-children li a { border-inline-end: none; }
+#main-menu .menu-children li a:hover { background-color: #80b0da }
+
+#footer { background-color: #578bb8; border: 0; color: #fff;}
+#footer a { color: #fff; font-weight: bold; }
+
+#main { font:90% Verdana,Tahoma,Arial,sans-serif; background: #e8eaec; }
+#main a { font-weight: bold; color: #467aa7;}
+#main a:hover { color: #2a5a8a; text-decoration: underline; }
+#content { background: #fff; }
+
+h2, h3, h4, .wiki h1, .wiki h2, .wiki h3 { border-block-end: 0; color:#606060; font-family: Trebuchet MS,Georgia,"Times New Roman",serif; }
+h2, .wiki h1 { letter-spacing:-1px; }
+h4 { border-block-end: dotted 1px #c0c0c0; }
+
+#top-menu a.home, #top-menu a.my-page, #top-menu a.projects, #top-menu a.administration, #top-menu a.help {
+    background-position: 0% 40%;
+    background-repeat: no-repeat;
+    padding-inline-start: 20px;
+    padding-block: 2px 3px;
+}
+[dir="rtl"] :is(#top-menu a.home, #top-menu a.my-page, #top-menu a.projects, #top-menu a.administration, #top-menu a.help) {background-position: right 0% top 40%;}
+
+#top-menu a.home { background-image: url(/themes/classic/home.png); }
+#top-menu a.my-page { background-image: url(/user.png); }
+#top-menu a.projects { background-image: url(/projects.png); }
+#top-menu a.administration { background-image: url(/themes/classic/wrench.png); }
+#top-menu a.help { background-image: url(/help.png); }

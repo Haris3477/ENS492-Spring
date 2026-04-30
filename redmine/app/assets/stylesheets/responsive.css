@@ -1,0 +1,908 @@
+/**
+ * Redmine - project management software
+ * Copyright (C) 2006-  Jean-Philippe Lang
+ * This code is released under the GNU General Public License.
+ */
+
+/*----------------------------------------*\
+  RESPONSIVE CSS
+\*----------------------------------------*/
+
+/*
+  CONTENTS
+
+  A) BASIC MOBILE RESETS
+  B) HEADER & TOP MENUS
+  C) MAIN CONTENT & SIDEBAR
+  D) TOGGLE BUTTON & FLYOUT MENU
+  E) UX ELEMENTS
+  F) PAGE SPECIFIC STYLES
+  G) FORMS
+*/
+
+/* Hide new elements (toggle button and flyout menu) above 900px */
+.mobile-toggle-button,
+.flyout-menu {
+  display: none;
+}
+
+/*
+  redmine's body is set to min-width: 900px
+  add first breakpoint here and start adding responsiveness
+*/
+
+@media screen and (max-width: 899px)
+{
+  /*----------------------------------------*\
+    A) BASIC MOBILE RESETS
+  \*----------------------------------------*/
+
+  /*
+    apply natural border box, see: http://www.paulirish.com/2012/box-sizing-border-box-ftw/
+    this helps us to better deal with percentages and padding / margin
+  */
+  *,
+  *:before,
+  *:after {
+    -webkit-box-sizing: border-box;
+    -moz-box-sizing: border-box;
+    box-sizing: border-box;
+  }
+
+  body,
+  html {
+    block-size: 100%;
+    margin: 0;
+    padding: 0;
+  }
+
+  html {
+    overflow-y: auto; /* avoid 2nd scrollbar on desktop */
+    -webkit-text-size-adjust: 100%; /* prevent font scaling in landscape mode on webkit */
+  }
+
+  body {
+    min-inline-size: 0; /* reset the min-width of 900px */
+    -webkit-overflow-scrolling: touch;
+  }
+
+  body,
+  input,
+  select,
+  textarea,
+  button {
+    font-size: 0.875rem;  /* Set font-size for standard elements to 0.875rem (14px) */
+  }
+
+  select {
+    max-inline-size: 100%;  /* prevent long names within select menues from breaking content */
+  }
+
+  #wrapper {
+    position: relative;
+    overflow-x: hidden; /* hide horizontal overflow */
+    max-inline-size: 100%;
+    margin: 0;
+  }
+
+  /*----------------------------------------*\
+    B) HEADER & TOP MENUS
+  \*----------------------------------------*/
+
+  #header {
+    inline-size: 100%;
+    block-size: 64px; /* the height of our header on mobile */
+    min-block-size: 0;
+    margin: 0;
+    padding: 0;
+    border: none;
+    background-color: #628db6;
+    position: fixed;
+    z-index: 9999;
+  }
+
+  /* Hide project name on mobile (project name is still visible in select menu) */
+  #header h1 {
+    display: none !important;
+  }
+
+  /* reset #header a color for mobile toggle button */
+  #header a.mobile-toggle-button {
+    color: var(--oc-gray-0);
+  }
+
+
+  /* Hide top-menu and main-menu on mobile, because it's placed in our flyout menu */
+  #top-menu,
+  #header #main-menu {
+    display: none;
+  }
+
+  /* the quick search within header holding search form and #project_quick_jump_box box*/
+  #header #quick-search {
+    float: none;
+    clear: none; /* there are themes which set clear property, this resets it */
+    max-inline-size: 100%; /* reset max-width */
+    margin: 0;
+    background: inherit;
+  }
+
+  /* styles for combobox within quick-search (#project_quick_jump_box) */
+  #project-jump.drdn {
+    position: absolute;
+    inset-block-start: 0px;
+    inset-inline-start: 0;
+    inline-size: 100%;
+    max-inline-size: 100%;
+    block-size: 2em;
+    block-size: 64px;
+    padding-block: 5px;
+    padding-inline: 20px 72px;
+  }
+  #project-jump .drdn-trigger {
+    font-size:1.5em;
+    font-weight:bold;
+    display:block;
+    inline-size:100%;
+    color:var(--oc-white);
+    padding-inline-start: 24px;
+    background:transparent;
+    block-size:50px;
+    line-height:40px;
+    border:0;
+  }
+  #project-jump .drdn-trigger:before {
+    /* set a font-size in order to achive same result in different themes */
+    font-family: var(--fonts-main);
+    font-size: 1.5em;
+
+    position: absolute;
+    inset-inline-start: 0;
+    padding-block: 0;
+    padding-inline: 8px;
+    /* achieve dropdwon arrow by scaling a caret character */
+    content: '^';
+    -webkit-transform: scale(1,-.8);
+            transform: scale(1,-.8);
+    text-align: end;
+    pointer-events: none;
+
+    opacity: .6;
+  }
+  #project-jump.expanded .drdn-trigger:before {
+    -webkit-transform: scale(1,.8);
+            transform: scale(1,.8);
+    padding-block-start: 8px;
+  }
+
+  #project-jump .drdn-content {
+    position:absolute;
+    inset-inline-start:0;
+    inset-block-start:64px;
+    inline-size:100%;
+    font-size:0.9375rem;
+    font-weight:normal;
+  }
+  #project-jump .drdn-content svg {
+    inline-size: 1.25rem;
+    block-size: 1.25rem;
+  }
+  #project-jump .drdn-content .autocomplete {
+    block-size:40px;
+    font-size:1.25rem;
+    padding-inline-start: 28px !important;
+  }
+  #project-jump .drdn-content a {
+    padding:8px;
+  }
+
+  #header #quick-search form {
+    display: none;
+  }
+
+  /*----------------------------------------*\
+    C) MAIN CONTENT & SIDEBAR
+  \*----------------------------------------*/
+
+  #main {
+    padding-block: 64px 0; /* padding-top equals header height */
+    padding-inline: 0;
+  }
+
+  #main.nosidebar #content,
+  div#content {
+    inline-size: 100%;
+    min-block-size: 0; /* reset min-height of #content */
+    margin: 0;
+    padding-inline: 16px;
+  }
+
+  /* hide sidebar and sidebar switch panel, since it's placed in mobile flyout menu */
+  #sidebar,
+  #sidebar-switch-panel {
+    display: none;
+  }
+
+  .splitcontentleft, .splitcontentright, .splitcontenttop {
+    inline-size: 100%;
+    flex: auto;
+    margin-inline: 0;
+  }
+
+  /*----------------------------------------*\
+    D) TOGGLE BUTTON & FLYOUT MENU
+  \*----------------------------------------*/
+
+  .mobile-toggle-button {
+    font-size: 2.625rem;
+    line-height: 64px;
+
+    position: relative;
+    z-index: 10;
+
+    display: block; /* remove display: none; of non-mobile version */
+    float: inline-end;
+
+    inline-size: 60px;
+    block-size: 64px;
+    margin-block-start: 0;
+
+    text-align: center;
+
+    border-inline-start: 1px solid var(--oc-gray-3);
+  }
+
+  .mobile-toggle-button:hover,
+  .mobile-toggle-button:active {
+    text-decoration: none;
+  }
+
+  .mobile-toggle-button:after {
+    font-family: var(--fonts-main);
+    display: block;
+    margin-block-start: -3px;
+    content: '\2261';
+  }
+
+  .search-magnifier--flyout {
+    position: absolute;
+    z-index: 1;
+    inset-inline-start: 12px;
+  }
+
+  /* Flyout Menu */
+
+  .flyout-menu {
+    position: absolute;
+    inset-inline-end: -250px;
+
+    display: block; /* remove display: none; of non-mobile version */
+    overflow-x: hidden;
+
+    inline-size: 250px;
+    block-size: 100%;
+    margin: 0; /* reset margin for themes that define it */
+    padding: 0; /* reset padding for themes that define it */
+
+    color: white;
+    background-color: #3e5b76;
+  }
+
+  /* avoid zoom on search input focus for ios devices */
+  .flyout-menu input[type='text'] {
+    font-size: 1rem;
+  }
+
+  .flyout-menu h3 {
+    font-size: 0.6875rem;
+    line-height: 19px;
+
+    block-size: 20px;
+    margin: 0;
+    padding: 0;
+
+    letter-spacing: .1em;
+    text-transform: uppercase;
+
+    color: white;
+    border-block: 1px solid #506a83;
+    background-color: #628db6;
+  }
+
+  .flyout-menu h4 {
+    color: white;
+  }
+
+  .flyout-menu h3,
+  .flyout-menu h4,
+  .flyout-menu > p,
+  .flyout-menu > a,
+  .flyout-menu ul li a,
+  .flyout-menu__search,
+  .flyout-menu__sidebar > div,
+  .flyout-menu__sidebar > p,
+  .flyout-menu__sidebar > a,
+  .flyout-menu__sidebar > form,
+  .flyout-menu > div,
+  .flyout-menu > form {
+    padding-inline-start: 8px;
+  }
+
+  .flyout-menu .flyout-menu__avatar {
+    margin-block-start: -1px; /* move avatar up 1px */
+    padding-inline-start: 0;
+  }
+
+  .flyout-menu__sidebar > form {
+    display: block;
+  }
+
+  .flyout-menu__sidebar > form h3 {
+    margin-inline-start: -8px;
+  }
+
+  .flyout-menu__sidebar > form label {
+    display: inline-block;
+    margin-block: 8px;
+    margin-inline: 0;
+  }
+
+  .flyout-menu__sidebar > form br  br {
+    display: none;
+  }
+
+  /* Targets list containing checkboxes (e.g. activities sidebar) in flyout menu */
+  .flyout-menu__sidebar form > ul {
+    margin-inline-start: -8px;
+    padding-inline-start: 0;
+  }
+
+  .flyout-menu__sidebar form > ul li {
+    line-height: 39px;
+    display: block;
+    padding-inline-start: 8px;
+    border-block-start: 1px solid rgba(255,255,255,.1);
+  }
+
+  .flyout-menu__sidebar form > ul li:first-child {
+    border-block-start: none;
+  }
+
+  .flyout-menu__sidebar form > ul li label {
+    margin: 0;
+  }
+
+  .flyout-menu__sidebar form > ul li label a {
+    line-height: 1;
+    display: inline;
+    padding-inline-start: 0;
+    border: none;
+  }
+
+  .flyout-menu ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .flyout-menu #watchers, .flyout-menu .queries {
+    display: -webkit-flex;
+    display: -webkit-box;
+    display: flex;
+    flex-direction: column;
+
+    -webkit-flex-direction: column;
+    -webkit-box-orient: vertical;
+    -webkit-box-direction: normal;
+  }
+
+  .flyout-menu #watchers .contextual {
+    -webkit-box-ordinal-group: 4;
+    -webkit-order: 3;
+    order: 3;
+  }
+
+  #sidebar-wrapper {
+    margin-inline-start: -8px;
+  }
+
+  .flyout-menu #watchers ul li, .flyout-menu ul.queries li {
+    display: -webkit-flex;
+    display: -webkit-box;
+    display: flex;
+    flex-direction: row;
+
+    -webkit-flex-direction: row;
+    -webkit-box-orient: horizontal;
+    -webkit-box-direction: normal;
+    -webkit-align-items: center;
+    -webkit-box-align: center;
+    align-items: center;
+    border-block-start: 1px solid rgba(255,255,255,.1);
+  }
+
+  .flyout-menu #watchers ul li a, .flyout-menu ul.queries li a {
+    border-block-start: none;
+  }
+
+  .flyout-menu ul.queries li a.icon-clear-query {
+    flex-shrink: 0;
+    padding-inline-end: 8px;
+  }
+
+  .flyout-menu ul li a {
+    line-height: 40px;
+    display: block;
+    overflow: hidden;
+    block-size: 40px;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    border-block-start: 1px solid rgba(255,255,255,.1);
+  }
+
+  .flyout-menu ul li:first-child a {
+    line-height: 39px;
+    block-size: 39px;
+    border-block-start: none;
+  }
+
+  .flyout-menu a {
+    color: white;
+  }
+
+  .flyout-menu .icon svg, .flyout-menu .icon-only svg {
+    stroke: white;
+  }
+
+  .flyout-menu ul li a:hover {
+    text-decoration: none;
+  }
+
+  .flyout-menu ul li a.new-object,
+  .new-object ~ .menu-children {
+    display: none;
+  }
+
+  /* Left flyout search container */
+  .flyout-menu__search {
+    line-height: 54px;
+    block-size: 64px;
+    padding-block-start: 3px;
+    padding-inline-end: 8px;
+  }
+
+  .flyout-menu__search input[type='text'] {
+    line-height: 2;
+
+    inline-size: 100%;
+    block-size: 38px;
+    padding-inline-start: 27px;
+
+    vertical-align: middle;
+
+    border: none;
+    -webkit-border-radius: 3px;
+    border-radius: 3px;
+    background-color: var(--oc-white);
+  }
+
+  .flyout-menu__avatar {
+    display: -webkit-box;
+    display: -webkit-flex;
+    display: flex;
+    inline-size: 100%;
+    border-block-start: 1px solid rgba(255,255,255,.1);
+  }
+
+  .flyout-menu__avatar img.gravatar {
+    inline-size: 40px;
+    block-size: 40px;
+    padding: 0;
+    vertical-align: top;
+    border-width: 0;
+  }
+
+  .flyout-menu__avatar a {
+    line-height: 40px;
+    block-size: 40px;
+    text-decoration: none;
+    color: white;
+  }
+
+  /* avatar */
+  .flyout-menu__avatar a:first-child {
+    line-height: 0;
+    inline-size: 40px;
+    padding: 0;
+  }
+
+  .flyout-menu__avatar .user {
+    padding-inline: 15px;
+    text-overflow: ellipsis;
+    overflow: hidden;
+    white-space: nowrap;
+    -webkit-flex-grow: 1;
+            flex-grow: 1;
+  }
+
+  /* user link when no avatar is present */
+  .flyout-menu__avatar--no-avatar a.user {
+    line-height: 40px;
+    padding-inline-start: 8px;
+  }
+
+  .flyout-is-active body {
+    overflow: hidden; /* for body not to have scrollbars when left flyout menu is active */
+  }
+
+  html.flyout-is-active {
+    overflow: hidden;
+  }
+
+  .flyout-is-active #wrapper, .flyout-is-active #header {
+    inset-inline-end: 250px; /* when left flyout is active, move body and header to the right (same amount like flyout-menu's width) */
+  }
+
+  .flyout-is-active #wrapper {
+    overflow: visible;
+    block-size: 100%;
+  }
+
+  .flyout-is-active .mobile-toggle-button:after {
+    content: '\00D7'; /* close glyph */
+  }
+
+  .flyout-is-active #main {
+    /*
+     * only relevant for devices with cursor when flyout it active, in order to show,
+     * that whole wrapper content is clickable and closes flyout menu
+     */
+    cursor: pointer;
+  }
+
+  #admin-menu {
+    padding-inline-start: 0;
+  }
+
+  #admin-menu li {
+    padding-block-end: 0;
+  }
+
+  #admin-menu a,
+  #admin-menu a.selected {
+    line-height: 40px;
+    padding: 0;
+  }
+
+  /*----------------------------------------*\
+    E) UX ELEMENTS
+  \*----------------------------------------*/
+
+  .mobile-hide {display:none;}
+  .mobile-show {display:initial;}
+
+  /* Contextual Buttons */
+
+  #content>.contextual {
+    inline-size: 100%;
+    margin-block-end: .5em;
+    padding-inline-start: 0; /* reset left padding in order to use whole space */
+    white-space: normal;
+  }
+
+  #content>.contextual>a,
+  #content>.contextual .drdn,
+  p.buttons a {
+    font-weight: bold;
+
+    display: inline-flex;
+
+    margin: 5px 0;
+    margin-inline-end: 2px;
+    padding: 9px 9px 9px 9px;
+
+    border: 1px solid var(--oc-gray-4);
+    -webkit-border-radius: 3px;
+    border-radius: 3px;
+  }
+  #content>.contextual .drdn-content {
+    inset-inline-start: 0px;
+    inset-inline-end: initial;
+    inset-block-start: 40px;
+  }
+  #content>.contextual .drdn .drdn-content a {
+    padding-block: 9px;
+  }
+
+  .flyout-menu .contextual {
+    float: none;
+  }
+
+  /* loading indicator */
+  #ajax-indicator {
+    inline-size: 60%;
+    inset-inline-start: 20%;
+  }
+
+  /* jquery ui dialogs */
+  .ui-dialog {
+    max-inline-size: 98%;
+    margin: 1%;
+  }
+
+  .ui-dialog .ui-dialog-content {
+    padding-inline: 0;
+  }
+
+  #filters-table {inline-size: 100%; float: none;}
+  .add-filter {inline-size: 100%; float: none; text-align: start; margin-block-start: 8px;}
+
+  /*----------------------------------------*\
+    F) PAGE SPECIFIC STYLES
+  \*----------------------------------------*/
+
+  /* some themes add a margin to login page, remove it on mobile */
+  .action-login #main {
+    margin: 0;
+  }
+
+  div#activity dl, #search-results {margin-inline-start: 0;}
+
+  .version-overview table.progress {inline-size: 75%;}
+  div#version-summary {float: none; inline-size: 100%; margin-inline-start: 0;}
+  body.controller-versions.action-show div#roadmap .related-issues {inline-size :100%;}
+
+  /* History and Changeset */
+  div#issue-changesets {
+    float: none;
+    inline-size: auto;
+    margin-inline-start: 0;
+    padding-inline-start: 0;
+    margin-block-end: 2em;
+  }
+
+  div#issue-changesets div.changeset {
+    padding-block-start: 1em;
+  }
+
+  /* Gantt charts */
+  /*
+   * [1] override inline styles with important
+   * [2] keep border between subjects and gantt area
+   * [3] remove whitespace between subjects and gantt area
+   * [4] maintain width due to [3]
+   */
+  .gantt_subjects_column {
+    inline-size: 60% !important; /* [1] */
+  }
+
+  .gantt_subjects_container {
+    inline-size: 100% !important;
+    overflow: hidden;
+  }
+
+  .gantt_subjects_column .gantt_hdr {
+    inline-size: 100% !important;
+    inset-inline-end: 0 !important; /* [2] */
+    border-inline-end: solid 1px var(--oc-gray-4);
+  }
+
+  #gantt_area {
+    inset-inline-start: -2px; /* [3] */
+    margin-inline-end: -2px; /* [4] */
+  }
+
+  /*----------------------------------------*\
+    G) FORMS
+  \*----------------------------------------*/
+
+  input, select, textarea {
+    max-inline-size: 100%;
+  }
+
+  /* tabular forms resets for mobile */
+  .tabular p, .tabular.settings p {
+    padding-inline-start: 0;
+  }
+
+  .tabular label, .tabular.settings label {
+    display: block;
+    inline-size: 100%;
+    margin-inline-start: 0;
+    text-align: start;
+  }
+
+  .tabular input, .tabular select, .tabular textarea {
+    inline-size: 100%;
+    max-inline-size: 100%;
+  }
+
+  .tabular input[type="checkbox"], .tabular input.date {
+    inline-size: auto;
+    max-inline-size: 95%;
+  }
+
+  /* new issue form */
+  #all_attributes p:first-child {
+    float: none !important;
+  }
+
+  #all_attributes #issue_tracker_id {
+    inline-size: 90%;
+  }
+
+  #issue_is_private_label {
+    display: inline;
+  }
+
+  span#watchers_inputs {
+    inline-size: 100%;
+  }
+
+  /* issue edit form */
+  label[for='issue_description'] ~ a .icon-edit {
+    word-wrap: normal;
+  }
+
+  /* issues page */
+  body.controller-issues p.query-totals {
+    margin-block-start: 0;
+    text-align: start;
+  }
+
+  /* subtasks and related issues list on issue show (without headers) */
+  #issue_tree:not(.with-related-issues-table-headers) table.issues,
+  #relations:not(.with-related-issues-table-headers) table.issues {
+    border-collapse: separate;
+    border-spacing: 0 1em; /* vertical space between tasks */
+  }
+
+  #issue_tree:not(.with-related-issues-table-headers) .issue > td:not(.checkbox),
+  #relations:not(.with-related-issues-table-headers) .issue > td:not(.checkbox) {
+    display: block;
+    float: inline-start;
+    text-align: start;
+    padding-inline-end: 5px;
+  }
+
+  #issue_tree:not(.with-related-issues-table-headers) .issue > td.subject,
+  #relations:not(.with-related-issues-table-headers) .issue > td.subject {
+    inline-size: 100%; /* let subject have one full width column */
+  }
+
+  #issue_tree:not(.with-related-issues-table-headers) .issue:has(.buttons a) > td.subject,
+  #relations:not(.with-related-issues-table-headers) .issue:has(.buttons a) > td.subject {
+    padding-inline-end: 40px;
+  }
+
+  #issue_tree:not(.with-related-issues-table-headers) .issue > td:not(.subject),
+  #relations:not(.with-related-issues-table-headers) .issue > td:not(.subject) {
+    inline-size: 20%; /* three columns for all cells that are not subject */
+  }
+
+  #issue_tree:not(.with-related-issues-table-headers) table.issues, #issue_tree:not(.with-related-issues-table-headers) .issue,
+  #relations:not(.with-related-issues-table-headers) table.issues, #relations:not(.with-related-issues-table-headers) .issue {
+    position: relative; /* needed for .buttons positioning */
+  }
+
+  /* positioniong of unline button */
+  #issue_tree:not(.with-related-issues-table-headers) .issue > td.buttons,
+  #relations:not(.with-related-issues-table-headers) .issue > td.buttons {
+    text-align: end;
+    position: absolute;
+    inset-inline-end: 0;
+    margin: 0;
+    padding-inline-end: 0;
+  }
+
+  #issue_tree:not(.with-related-issues-table-headers) .issue .buttons a,
+  #relations:not(.with-related-issues-table-headers) .issue .buttons a {
+    vertical-align: middle;
+  }
+
+  /* subtasks and related issues list on issue show (with headers) */
+  #issue_tree.with-related-issues-table-headers .subtasks-wrapper,
+  #relations.with-related-issues-table-headers .relation-issues-wrapper {
+    overflow-x: scroll;
+  }
+
+  #issue_tree.with-related-issues-table-headers .issue > td.subject,
+  #relations.with-related-issues-table-headers .issue > td.subject {
+    min-inline-size: 15rem;
+  }
+
+  /* attachment upload form */
+  .attachments_fields span {
+    position: relative;
+    clear: both;
+    margin-block-end: 1em;
+    white-space: normal;
+  }
+  .attachments_fields span a.remove-upload {
+    position: absolute;
+    inset-block-start: 0;
+    inset-inline-end: 0;
+  }
+
+  .attachments_fields input.description {
+    margin-inline-start: 0;
+    inline-size: 100%;
+  }
+
+  /* Calendar */
+  ul.cal {
+    display: block
+  }
+  .cal .calhead {
+    display: none
+  }
+
+  .cal .calbody {
+    min-block-size: calc(1.2em * 3);
+  }
+
+  .cal .calbody .abbr-day {
+    display: inline;
+  }
+
+  .cal .week-number {
+    border: 1px solid var(--oc-gray-4);
+    text-align: start;
+    font-weight: bold;
+    background-color: var(--oc-blue-0);
+  }
+
+  .cal .week-number .label-week {
+    display: inline;
+  }
+
+  .cal .calbody p.day-num {
+    font-size: 1.1em;
+    text-align: start;
+  }
+
+  /* Sticky issue header */
+  /* When project-jump.drdn is visible in mobile layout, offset the sticky header by its height to prevent it from being hidden. */
+  div#sticky-issue-header {
+    inset-block-start: 64px;
+  }
+
+  /* Prevent content from being hidden behind #sticky-issue-header and project-jump when scrolling via anchor links. */
+  .controller-issues.action-show div.wiki a[name],
+  .controller-issues.action-show #history div[id^="note-"],
+  .controller-issues.action-show #history div[id^="change-"],
+  .controller-issues.action-show #update {
+    scroll-margin-block-start: 114px;
+  }
+}
+
+@media all and (max-width: 599px) {
+  span.pagination {text-align:center;}
+  .pagination ul.pages li {display:none;}
+  .pagination ul.pages li.current,
+  .pagination ul.pages li.previous,
+  .pagination ul.pages li.next {display: inline-block; inline-size: 32%; overflow: hidden;}
+  div.issue .next-prev-links {
+    float: none;
+    clear: both;
+    display: block;
+    margin-block-end: 12px;
+    padding-inline-start: 0;
+    text-align: center;
+  }
+  div.issue .next-prev-links .pagination ul.pages {
+    display: inline-flex;
+  }
+  div.issue .next-prev-links .pagination ul.pages li.previous,
+  div.issue .next-prev-links .pagination ul.pages li.position,
+  div.issue .next-prev-links .pagination ul.pages li.next {
+    display: inline-block;
+    inline-size: auto;
+    overflow: visible;
+  }
+
+  #login-form {inline-size: 100%; margin-block-start: 2em;}
+
+  #filters-table .filter .field, #list-definition > div .field { inline-size: 100%; }
+  #filters-table .values { inline-size: auto; max-inline-size: 100%; }
+}
